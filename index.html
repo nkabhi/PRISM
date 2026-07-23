@@ -1,0 +1,3370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    connect-src 'self'
+        https://internetdb.shodan.io
+        https://crt.sh
+        https://dns.google
+        https://cloudflare-dns.com
+        https://api.ssllabs.com
+        https://api.hackertarget.com
+        https://rdap.org
+        https://urlhaus-api.abuse.ch
+        https://threatfox-api.abuse.ch
+        https://mb-api.abuse.ch;
+    object-src 'none';
+    base-uri 'none';
+    form-action 'none';
+">
+<title>PRISM — Network & Security Toolkit</title>
+<style>
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+    --bg: #06090c;
+    --panel: rgba(10, 18, 24, 0.7);
+    --panel-solid: #0b1620;
+    --border: rgba(56, 189, 248, 0.18);
+    --border-bright: rgba(56, 189, 248, 0.5);
+    --accent: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.35);
+    --text: #dbeafe;
+    --text-dim: #7ea3c2;
+    --sev-safe: #22c55e;
+    --sev-info: #38bdf8;
+    --sev-caution: #fbbf24;
+    --sev-sensitive: #ef4444;
+    --mono: 'Consolas', 'Courier New', monospace;
+}
+
+html, body { height: 100%; }
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', Arial, sans-serif;
+    overflow: hidden;
+}
+
+/* ===== APP SHELL ===== */
+
+.app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+/* ===== SIDEBAR ===== */
+
+.sidebar {
+    width: 340px;
+    min-width: 340px;
+    background: var(--panel-solid);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.brand {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+.brand-mark {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    color: #04121c;
+    box-shadow: 0 0 18px var(--accent-glow);
+    flex-shrink: 0;
+}
+
+.brand-text h1 {
+    font-size: 17px;
+    letter-spacing: 1.5px;
+    color: #eef6ff;
+    text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.brand-text p {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    margin-top: 1px;
+}
+
+.sidebar-search {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.sidebar-search input {
+    width: 100%;
+    padding: 9px 12px;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    font-family: inherit;
+}
+
+.sidebar-search input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.sidebar-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 8px 20px 8px;
+}
+
+.sidebar-tree::-webkit-scrollbar { width: 8px; }
+.sidebar-tree::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.25); border-radius: 4px; }
+.sidebar-tree::-webkit-scrollbar-track { background: transparent; }
+
+/* ===== TREE NODES (recursive) ===== */
+
+.node { margin-bottom: 2px; }
+
+.node-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-radius: 7px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+    transition: background 0.15s ease, color 0.15s ease;
+    user-select: none;
+}
+
+.node-row:hover {
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.node-row.active {
+    background: rgba(56, 189, 248, 0.14);
+    color: #eef6ff;
+    box-shadow: inset 0 0 0 1px var(--border-bright);
+}
+
+.node-toggle {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    border-radius: 5px;
+    background: rgba(56,189,248,0.12);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    transition: transform 0.25s ease, background 0.2s ease;
+}
+
+.node-row.expanded .node-toggle {
+    transform: rotate(45deg);
+    background: rgba(56,189,248,0.25);
+}
+
+.node-toggle.leaf-spacer {
+    background: transparent;
+    border: none;
+}
+
+.node-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.node-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    background: rgba(255,255,255,0.05);
+    padding: 1px 7px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.sev-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 6px currentColor;
+}
+
+.sev-safe { color: var(--sev-safe); background: var(--sev-safe); }
+.sev-info { color: var(--sev-info); background: var(--sev-info); }
+.sev-caution { color: var(--sev-caution); background: var(--sev-caution); }
+.sev-sensitive { color: var(--sev-sensitive); background: var(--sev-sensitive); }
+
+.node-children {
+    max-height: 0;
+    overflow: hidden;
+    padding-left: 18px;
+    border-left: 1px dashed rgba(56,189,248,0.15);
+    margin-left: 9px;
+    transition: max-height 0.35s ease;
+}
+
+.node-children.open {
+    /* max-height set inline via JS to actual scrollHeight for smooth transition */
+}
+
+.func-badge {
+    font-size: 8.5px;
+    letter-spacing: 0.5px;
+    padding: 1px 6px;
+    border-radius: 20px;
+    background: rgba(34,197,94,0.15);
+    color: var(--sev-safe);
+    border: 1px solid rgba(34,197,94,0.35);
+    flex-shrink: 0;
+}
+
+/* ===== MAIN CONTENT ===== */
+
+.main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+}
+
+.topbar {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    background: rgba(10,18,24,0.5);
+}
+
+.breadcrumb {
+    font-size: 13px;
+    color: var(--text-dim);
+    letter-spacing: 0.3px;
+}
+
+.breadcrumb b { color: var(--accent); font-weight: 600; }
+
+.legend {
+    display: flex;
+    gap: 16px;
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+.legend span { display: flex; align-items: center; gap: 6px; }
+
+.content-scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px 60px 32px;
+}
+
+.content-scroll::-webkit-scrollbar { width: 10px; }
+.content-scroll::-webkit-scrollbar-thumb { background: rgba(56,189,248,0.2); border-radius: 5px; }
+.content-scroll::-webkit-scrollbar-track { background: transparent; }
+
+/* welcome screen */
+
+.welcome {
+    max-width: 640px;
+    margin: 60px auto;
+    text-align: center;
+}
+
+.welcome h2 {
+    font-size: 30px;
+    color: #eef6ff;
+    text-shadow: 0 0 20px var(--accent-glow);
+    margin-bottom: 14px;
+}
+
+.welcome p {
+    color: var(--text-dim);
+    font-size: 14.5px;
+    line-height: 1.7;
+    margin-bottom: 24px;
+}
+
+.welcome-stats {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 30px;
+}
+
+.welcome-stats div { text-align: center; }
+.welcome-stats .num { font-size: 26px; font-weight: 800; color: var(--accent); text-shadow: 0 0 14px var(--accent-glow); }
+.welcome-stats .lbl { font-size: 11px; color: var(--text-dim); letter-spacing: 0.5px; margin-top: 2px; }
+
+/* group heading in content */
+
+.group-block { margin-bottom: 34px; }
+
+.group-heading {
+    font-size: 19px;
+    color: #eef6ff;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.group-guidance {
+    font-size: 13px;
+    color: var(--text-dim);
+    line-height: 1.6;
+    margin-bottom: 16px;
+    max-width: 780px;
+}
+
+.tool-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+}
+
+.tool-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    transition: border-color 0.2s ease, transform 0.15s ease;
+}
+
+.tool-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-1px);
+}
+
+.tool-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.tool-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: #eef6ff;
+    flex: 1;
+}
+
+.tool-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    line-height: 1.5;
+    margin-bottom: 10px;
+}
+
+.tool-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: var(--accent);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 20px;
+    transition: all 0.15s ease;
+}
+
+.tool-link:hover {
+    background: rgba(56,189,248,0.12);
+    border-color: var(--border-bright);
+}
+
+.sev-tag {
+    font-size: 9.5px;
+    letter-spacing: 0.4px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    flex-shrink: 0;
+    border: 1px solid currentColor;
+}
+
+.sev-tag.sev-safe { color: var(--sev-safe); }
+.sev-tag.sev-info { color: var(--sev-info); }
+.sev-tag.sev-caution { color: var(--sev-caution); }
+.sev-tag.sev-sensitive { color: var(--sev-sensitive); }
+
+/* ===== FUNCTIONAL TOOL RUNNER ===== */
+
+.runner-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 14px;
+}
+
+.runner-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.runner-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.runner-name {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: #7dd3fc;
+}
+
+.runner-desc {
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.runner-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.runner-row input {
+    flex: 1;
+    padding: 9px 11px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    outline: none;
+}
+
+.runner-row input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.runner-row button {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 7px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: #04121c;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    box-shadow: 0 0 14px var(--accent-glow);
+    transition: filter 0.15s ease;
+}
+
+.runner-row button:hover { filter: brightness(1.15); }
+.runner-row button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.cmd-preview {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #64748b;
+    margin-bottom: 10px;
+    word-break: break-all;
+}
+
+.cmd-preview b { color: #94a3b8; }
+
+.runner-output {
+    background: #000;
+    border: 1px solid rgba(56,189,248,0.15);
+    border-radius: 7px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #86efac;
+    min-height: 60px;
+    max-height: 220px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.5;
+}
+
+.runner-output.empty {
+    color: #475569;
+    font-style: italic;
+}
+
+.runner-output.err { color: #fca5a5; }
+
+.platform-flag {
+    display: inline-block;
+    font-size: 9.5px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: rgba(148,163,184,0.12);
+    color: #94a3b8;
+    margin-left: 6px;
+}
+
+/* ===== EMPTY STATE FOR GROUPS WITHOUT SUBTABS ETC ===== */
+
+.mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-bottom: 18px;
+}
+
+.mode-pill.live {
+    background: rgba(34,197,94,0.12);
+    border: 1px solid rgba(34,197,94,0.4);
+    color: var(--sev-safe);
+}
+
+.mode-pill.ref {
+    background: rgba(56,189,248,0.1);
+    border: 1px solid rgba(56,189,248,0.3);
+    color: var(--accent);
+}
+
+.sidebar-tree-label {
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    color: var(--text-dim);
+    padding: 10px 18px 4px 18px;
+    flex-shrink: 0;
+}
+
+.quiz-nav {
+    margin: 14px 14px 0 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(168,85,247,0.18), rgba(236,72,153,0.14));
+    border: 1px solid rgba(217,70,239,0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.quiz-nav:hover {
+    border-color: rgba(232,121,249,0.7);
+    box-shadow: 0 0 18px rgba(217,70,239,0.25);
+    transform: translateY(-1px);
+}
+
+.quiz-nav.active {
+    background: linear-gradient(135deg, rgba(168,85,247,0.3), rgba(236,72,153,0.24));
+    border-color: #e879f9;
+    box-shadow: 0 0 20px rgba(217,70,239,0.35);
+}
+
+.quiz-nav-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #a855f7, #ec4899);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 17px;
+    flex-shrink: 0;
+    box-shadow: 0 0 14px rgba(217,70,239,0.4);
+}
+
+.quiz-nav-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #f5d0fe;
+}
+
+.quiz-nav-sub {
+    font-size: 10.5px;
+    color: #d8b4fe;
+    opacity: 0.8;
+    margin-top: 1px;
+}
+
+.quiz-frame-wrap {
+    width: 100%;
+    height: calc(100vh - 180px);
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(217,70,239,0.3);
+    box-shadow: 0 0 30px rgba(217,70,239,0.1);
+}
+
+.quiz-frame-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+.dash-nav {
+    background: linear-gradient(135deg, rgba(56,189,248,0.16), rgba(34,211,238,0.12));
+    border-color: rgba(56,189,248,0.4);
+}
+.dash-nav:hover { border-color: rgba(103,232,249,0.7); box-shadow: 0 0 18px rgba(56,189,248,0.25); }
+.dash-nav.active { background: linear-gradient(135deg, rgba(56,189,248,0.3), rgba(34,211,238,0.22)); border-color: #67e8f9; box-shadow: 0 0 20px rgba(56,189,248,0.35); }
+.dash-icon { background: linear-gradient(135deg, #38bdf8, #22d3ee); box-shadow: 0 0 14px rgba(56,189,248,0.4); }
+
+.api-nav {
+    background: linear-gradient(135deg, rgba(34,197,94,0.16), rgba(16,185,129,0.12));
+    border-color: rgba(34,197,94,0.4);
+}
+.api-nav:hover { border-color: rgba(74,222,128,0.7); box-shadow: 0 0 18px rgba(34,197,94,0.25); }
+.api-nav.active { background: linear-gradient(135deg, rgba(34,197,94,0.3), rgba(16,185,129,0.22)); border-color: #4ade80; box-shadow: 0 0 20px rgba(34,197,94,0.35); }
+.api-icon { background: linear-gradient(135deg, #22c55e, #10b981); box-shadow: 0 0 14px rgba(34,197,94,0.4); }
+
+/* dashboard grid */
+
+.dash-stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 26px;
+}
+
+.dash-stat-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+}
+
+.dash-stat-num {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--accent);
+    text-shadow: 0 0 14px var(--accent-glow);
+}
+
+.dash-stat-lbl {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+}
+
+.dash-launch-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 28px;
+}
+
+.dash-launch-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.dash-launch-card:hover {
+    border-color: var(--border-bright);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(56,189,248,0.12);
+}
+
+.dash-launch-icon { font-size: 22px; margin-bottom: 8px; }
+.dash-launch-title { font-size: 14px; font-weight: 600; color: #eef6ff; margin-bottom: 3px; }
+.dash-launch-sub { font-size: 11.5px; color: var(--text-dim); }
+
+.activity-list {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.activity-item {
+    padding: 11px 16px;
+    font-size: 12.5px;
+    font-family: var(--mono);
+    color: #94e8bb;
+    border-bottom: 1px solid rgba(56,189,248,0.08);
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.activity-item:last-child { border-bottom: none; }
+.activity-time { color: var(--text-dim); flex-shrink: 0; }
+
+.activity-empty {
+    padding: 20px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-style: italic;
+}
+
+/* key status badge on live api cards */
+
+.key-badge {
+    font-size: 9.5px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    flex-shrink: 0;
+}
+
+.key-badge.connected { background: rgba(34,197,94,0.15); color: var(--sev-safe); border: 1px solid rgba(34,197,94,0.4); }
+.key-badge.missing { background: rgba(148,163,184,0.1); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+
+.settings-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+}
+
+.key-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(56,189,248,0.08);
+}
+
+.key-row:last-child { border-bottom: none; }
+
+.key-row-name {
+    width: 150px;
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #eef6ff;
+}
+
+.key-row input {
+    flex: 1;
+    padding: 8px 11px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12.5px;
+    outline: none;
+}
+
+.key-row input:focus { border-color: var(--accent); }
+
+.key-row button {
+    padding: 8px 14px;
+    border: none;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.key-save-btn { background: linear-gradient(135deg, #22c55e, #16a34a); color: #04140a; }
+.key-clear-btn { background: rgba(239,68,68,0.15); color: #fca5a5; border: 1px solid rgba(239,68,68,0.35) !important; }
+
+/* ===== AUTH SCREEN ===== */
+
+.auth-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(ellipse at center, #0b1620 0%, #030507 100%);
+}
+
+.auth-box {
+    width: 380px;
+    padding: 30px;
+    background: var(--panel);
+    backdrop-filter: blur(18px);
+    border: 1px solid var(--border-bright);
+    border-radius: 16px;
+    box-shadow: 0 0 50px rgba(56,189,248,0.15);
+}
+
+.auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 22px;
+}
+
+.auth-box h2 { font-size: 18px; color: #eef6ff; margin-bottom: 4px; }
+.auth-sub { font-size: 12.5px; color: var(--text-dim); margin-bottom: 18px; }
+
+.auth-box .login-field { margin-bottom: 13px; }
+.auth-box .login-field label { display: block; font-size: 10.5px; letter-spacing: 0.8px; color: var(--text-dim); text-transform: uppercase; margin-bottom: 5px; }
+.auth-box .login-field input {
+    width: 100%; padding: 10px 12px; background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border); border-radius: 8px; color: var(--text);
+    font-family: inherit; font-size: 14px; outline: none;
+}
+.auth-box .login-field input:focus { border-color: var(--accent); box-shadow: 0 0 10px var(--accent-glow); }
+
+.login-error {
+    color: #fca5a5; font-size: 12.5px; margin: -4px 0 12px 0; display: none;
+}
+.login-error.show { display: block; }
+
+.auth-box button.full-width {
+    width: 100%; padding: 11px; border: none; border-radius: 8px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #04121c;
+    font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 0 16px var(--accent-glow);
+}
+
+/* ===== USER AREA (topbar) ===== */
+
+.user-area {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 10px 6px 6px;
+    border-radius: 30px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    background: rgba(56,189,248,0.05);
+    transition: border-color 0.15s ease;
+}
+
+.user-area:hover { border-color: var(--border-bright); }
+
+.user-avatar {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: linear-gradient(135deg, #0ea5e9, #6366f1);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; color: #04121c;
+    overflow: hidden; flex-shrink: 0;
+}
+.user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.user-name { font-size: 12.5px; font-weight: 600; color: #eef6ff; line-height: 1.2; }
+.user-role { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+.user-caret { font-size: 10px; color: var(--text-dim); }
+
+.user-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: var(--panel-solid);
+    border: 1px solid var(--border-bright);
+    border-radius: 10px;
+    min-width: 150px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: none;
+    overflow: hidden;
+    z-index: 50;
+}
+.user-menu.open { display: block; }
+.user-menu-item {
+    padding: 11px 16px; font-size: 13px; color: var(--text);
+    cursor: pointer; transition: background 0.15s ease;
+}
+.user-menu-item:hover { background: rgba(56,189,248,0.1); }
+
+/* ===== USER MANAGEMENT NAV + TABLE ===== */
+
+.um-nav { background: linear-gradient(135deg, rgba(251,191,36,0.16), rgba(245,158,11,0.12)); border-color: rgba(251,191,36,0.4); }
+.um-nav:hover { border-color: rgba(253,224,71,0.7); box-shadow: 0 0 18px rgba(251,191,36,0.25); }
+.um-nav.active { background: linear-gradient(135deg, rgba(251,191,36,0.3), rgba(245,158,11,0.22)); border-color: #fbbf24; box-shadow: 0 0 20px rgba(251,191,36,0.35); }
+.um-icon { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 0 14px rgba(251,191,36,0.4); }
+
+.um-table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.um-table th { text-align: left; font-size: 10.5px; letter-spacing: 0.6px; color: var(--text-dim); padding: 12px 14px; border-bottom: 1px solid var(--border); text-transform: uppercase; }
+.um-table td { padding: 11px 14px; font-size: 13px; color: var(--text); border-bottom: 1px solid rgba(56,189,248,0.06); vertical-align: middle; }
+.um-table tr:last-child td { border-bottom: none; }
+
+.um-row-avatar { width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg,#0ea5e9,#6366f1); display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #04121c; overflow: hidden; vertical-align: middle; margin-right: 10px; }
+.um-row-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+.role-badge { font-size: 10px; padding: 3px 9px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.4px; }
+.role-badge.admin { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.4); }
+.role-badge.analyst { background: rgba(56,189,248,0.15); color: var(--accent); border: 1px solid rgba(56,189,248,0.4); }
+.role-badge.viewer { background: rgba(148,163,184,0.12); color: #94a3b8; border: 1px solid rgba(148,163,184,0.3); }
+
+.um-restricted { text-align: center; padding: 60px 20px; color: var(--text-dim); }
+
+/* ===== LIVE STAT CHARTS (dashboard) ===== */
+
+.chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-bottom: 28px; }
+.chart-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.chart-card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.chart-title { font-size: 12.5px; font-weight: 600; color: #eef6ff; }
+.chart-value { font-size: 20px; font-weight: 800; color: var(--accent); text-shadow: 0 0 10px var(--accent-glow); }
+.chart-card canvas { width: 100%; height: 70px; display: block; }
+.chart-preview-badge { font-size: 8.5px; padding: 1px 6px; border-radius: 20px; background: rgba(148,163,184,0.12); color: #94a3b8; }
+
+/* ===== FULLSCREEN TOGGLE (quiz frame) ===== */
+
+.quiz-frame-wrap { position: relative; }
+.fullscreen-btn {
+    position: absolute; top: 10px; right: 10px; z-index: 10;
+    padding: 7px 13px; font-size: 12px; font-weight: 700;
+    background: rgba(6,9,12,0.75); color: #e879f9;
+    border: 1px solid rgba(232,121,249,0.5); border-radius: 20px;
+    cursor: pointer; backdrop-filter: blur(6px);
+}
+.fullscreen-btn:hover { background: rgba(232,121,249,0.15); }
+
+</style>
+</head>
+<body>
+
+<div class="auth-screen" id="auth-screen">
+
+    <div class="auth-box">
+
+        <div class="auth-brand">
+            <div class="brand-mark">P</div>
+            <div class="brand-text"><h1>PRISM</h1><p>NETWORK &amp; SECURITY TOOLKIT</p></div>
+        </div>
+
+        <!-- Setup mode: only shown when no users exist yet -->
+        <div id="auth-setup-mode" style="display:none;">
+            <h2>Create the admin account</h2>
+            <p class="auth-sub">First run — this account becomes the PRISM administrator.</p>
+
+            <div class="login-field">
+                <label>Username</label>
+                <input type="text" id="setup-username" autocomplete="off" placeholder="e.g. abhi">
+            </div>
+            <div class="login-field">
+                <label>Password</label>
+                <input type="password" id="setup-password" autocomplete="off" placeholder="Choose a password">
+            </div>
+            <div class="login-field">
+                <label>Photo (optional)</label>
+                <input type="file" id="setup-photo" accept="image/*">
+            </div>
+
+            <div class="login-error" id="setup-error"></div>
+
+            <button class="full-width" onclick="submitSetup()">Create Admin Account →</button>
+        </div>
+
+        <!-- Login mode: shown once at least one user exists -->
+        <div id="auth-login-mode" style="display:none;">
+            <h2>Sign in</h2>
+            <p class="auth-sub">Access is restricted to registered PRISM users.</p>
+
+            <div class="login-field">
+                <label>Username</label>
+                <input type="text" id="login-username-field" autocomplete="off">
+            </div>
+            <div class="login-field">
+                <label>Password</label>
+                <input type="password" id="login-password-field" autocomplete="off">
+            </div>
+
+            <div class="login-error" id="login-error-field"></div>
+
+            <button class="full-width" onclick="submitLogin()">Sign In →</button>
+        </div>
+
+    </div>
+
+</div>
+
+<div class="app" id="app-root" style="display:none;">
+
+    <div class="sidebar">
+        <div class="brand">
+            <div class="brand-mark">P</div>
+            <div class="brand-text">
+                <h1>PRISM</h1>
+                <p>NETWORK &amp; SECURITY TOOLKIT</p>
+            </div>
+        </div>
+
+        <div class="quiz-nav dash-nav" id="dashboard-nav-btn" onclick="showDashboard()">
+            <div class="quiz-nav-icon dash-icon">🏠</div>
+            <div class="quiz-nav-text">
+                <div class="quiz-nav-title">Dashboard</div>
+                <div class="quiz-nav-sub">Overview &amp; recent activity</div>
+            </div>
+        </div>
+
+        <div class="quiz-nav" id="quiz-nav-btn" onclick="showQuizTab()">
+            <div class="quiz-nav-icon">🎮</div>
+            <div class="quiz-nav-text">
+                <div class="quiz-nav-title">Live Quiz</div>
+                <div class="quiz-nav-sub">The CyberSecurity Guy MCQ</div>
+            </div>
+        </div>
+
+        <div class="quiz-nav api-nav" id="api-nav-btn" onclick="showLiveApisTab()">
+            <div class="quiz-nav-icon api-icon">🛰️</div>
+            <div class="quiz-nav-text">
+                <div class="quiz-nav-title">Live Intel APIs</div>
+                <div class="quiz-nav-sub">No-key + API-key lookups</div>
+            </div>
+        </div>
+
+        <div class="quiz-nav um-nav" id="um-nav-btn" onclick="showUserManagementTab()">
+            <div class="quiz-nav-icon um-icon">👥</div>
+            <div class="quiz-nav-text">
+                <div class="quiz-nav-title">User Management</div>
+                <div class="quiz-nav-sub">RBAC · admin only</div>
+            </div>
+        </div>
+
+        <div class="sidebar-search">
+            <input type="text" id="sidebar-search-input" placeholder="🔍 Search tools & categories..." oninput="handleSearch(this.value)">
+        </div>
+
+        <div class="sidebar-tree-label">TOOL CATEGORIES</div>
+
+        <div class="sidebar-tree" id="sidebar-tree"></div>
+    </div>
+
+    <div class="main">
+        <div class="topbar">
+            <div class="breadcrumb" id="breadcrumb">Select a category from the left to get started</div>
+            <div class="user-area" id="user-area" onclick="toggleUserMenu(event)">
+                <div class="user-avatar" id="user-avatar-img">?</div>
+                <div class="user-info">
+                    <div class="user-name" id="user-name-label">—</div>
+                    <div class="user-role" id="user-role-label">—</div>
+                </div>
+                <div class="user-caret">▾</div>
+                <div class="user-menu" id="user-menu">
+                    <div class="user-menu-item" onclick="logoutUser(event)">🚪 Logout</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-scroll" id="content-scroll">
+            <div class="welcome">
+                <h2>🛰️ Welcome to PRISM</h2>
+                <p>
+                    A single navigator for the network &amp; security toolset you actually use —
+                    diagnostics you can run right here, and a categorized map of every other tool
+                    with guidance on how and where to use it. Expand a category on the left to begin.
+                </p>
+                <div class="welcome-stats" id="welcome-stats"></div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+/* ==========================================================================
+   PRISM TOOL DATA
+   Each leaf tool: [name, severity, description, link(optional)]
+   severity: 's'=safe/built-in  'i'=info/online-service  'c'=caution/active  'x'=sensitive/auth-only
+   A "group" node has: { name, guidance, tools:[...] }
+   A "category" node has: { name, guidance, groups:[...] }  OR  { name, guidance, tools:[...] }
+   Categories marked functional:true get the live command-runner UI instead of tool cards.
+   ========================================================================== */
+
+const PRISM_DATA = [
+
+{
+    id: "netdiag", name: "Network Diagnostics Toolkit", functional: true,
+    guidance: "Core reachability, path, and connection-testing commands. These run live from PRISM using your system's built-in networking tools — safe to use on anything, including your own machine.",
+    tools: [
+        ["ping", "s", "Test reachability and latency", "ping -n 4 {target}", "ping"],
+        ["traceroute", "c", "Trace packet path (Linux/macOS — not available on Windows)", "tracert {target}", "tracert"],
+        ["tracert", "s", "Trace packet path on Windows", "tracert {target}", "tracert"],
+        ["pathping", "s", "Traceroute + packet loss analysis (Windows)", "pathping {target}", "pathping"],
+        ["mtr", "c", "Real-time ping+traceroute (Linux/macOS — not available on Windows)", "tracert {target}", "tracert"],
+        ["nping", "c", "Advanced packet generation and response analysis (needs Nmap install)", "ping -n 4 {target}", "ping"],
+        ["hping3", "c", "TCP/IP packet crafting and testing (Linux tool — needs WSL/Kali)", "ping -n 4 {target}", "ping"],
+        ["arp", "s", "View and manipulate the ARP cache", "arp -a", "arp"],
+        ["ip", "c", "Modern Linux interface/routing management (not on Windows)", "ipconfig /all", "ipconfig"],
+        ["ifconfig", "c", "Legacy *nix interface configuration (not on Windows)", "ipconfig /all", "ipconfig"],
+        ["route", "s", "View or modify the routing table", "route print", "route"],
+        ["ip route", "c", "Linux route management (not on Windows)", "route print", "route"],
+        ["netstat", "s", "Network connections and statistics", "netstat -ano", "netstat"],
+        ["ss", "c", "Modern netstat replacement (Linux — not on Windows)", "netstat -ano", "netstat"],
+        ["host", "c", "Simple DNS lookup (Linux/macOS — not on Windows)", "nslookup {target}", "nslookup"],
+        ["whois", "c", "Domain registration lookup (needs install on Windows)", "nslookup -type=any {target}", "nslookup_any"],
+        ["curl", "s", "HTTP / API / network testing", "curl -I {target}", "curl"],
+        ["wget", "c", "Download and HTTP testing (needs install on Windows)", "curl -I {target}", "curl"],
+        ["telnet", "c", "Basic TCP connectivity testing (may need enabling on Windows)", "telnet {target} 80", "telnet"],
+        ["nc / netcat", "c", "TCP/UDP connection testing (not built into Windows)", "Test-NetConnection {target}", "testnetconnection"],
+        ["socat", "c", "Advanced bidirectional data relay (Linux — needs WSL)", "Test-NetConnection {target}", "testnetconnection"],
+        ["openssl s_client", "c", "TLS/SSL connection testing (needs OpenSSL install)", "Test-NetConnection {target} -Port 443", "testnetconnection_port"],
+        ["tcping", "c", "Test TCP port connectivity (3rd-party download)", "Test-NetConnection {target} -Port 443", "testnetconnection_port"],
+        ["fping", "c", "Ping multiple hosts at once (needs install)", "ping -n 4 {target}", "ping"],
+        ["arping", "c", "ARP-level connectivity testing (needs install)", "arp -a", "arp"]
+    ]
+},
+
+{
+    id: "dns", name: "DNS Toolkit", functional: true,
+    groups: [
+        {
+            name: "DNS Query & Analysis", functional: true,
+            guidance: "Live lookups run right here. dig/nslookup/host are simple passive lookups — safe on any domain. The enumeration tools below them (dnsrecon, amass, subfinder, etc.) actively brute-force subdomains and generate real traffic against the target's DNS infrastructure — only run those against domains you're authorized to test.",
+            tools: [
+                ["dig", "s", "Detailed DNS record lookup", "nslookup -type=any {target}", "nslookup_any"],
+                ["nslookup", "s", "Built-in DNS query tool", "nslookup {target}", "nslookup"],
+                ["host", "c", "Simple DNS lookup (Linux/macOS)", "nslookup {target}", "nslookup"],
+                ["kdig", "c", "Knot DNS's dig-alternative (needs install)", "nslookup -type=any {target}", "nslookup_any"],
+                ["drill", "c", "ldns DNS lookup tool (needs install)", "nslookup -type=any {target}", "nslookup_any"],
+                ["dnsrecon", "c", "Active DNS enumeration & zone transfer testing — authorized targets only", "", ""],
+                ["dnsenum", "c", "Subdomain & DNS record enumeration — authorized targets only", "", ""],
+                ["fierce", "c", "Domain scanner for misconfigured DNS — authorized targets only", "", ""],
+                ["dnsmap", "c", "Subdomain brute-forcer — authorized targets only", "", ""],
+                ["dnsx", "c", "Fast DNS toolkit for bulk resolution — authorized targets only", "", ""],
+                ["massdns", "c", "High-performance bulk DNS resolver — authorized targets only", "", ""],
+                ["subfinder", "c", "Passive subdomain discovery — try the live crt.sh lookup in Live Intel APIs", "", ""],
+                ["amass", "c", "In-depth attack-surface & subdomain mapping — authorized targets only", "", ""],
+                ["assetfinder", "c", "Find related domains/subdomains — try the live crt.sh lookup in Live Intel APIs", "", ""]
+            ]
+        },
+        {
+            name: "Online DNS Intelligence",
+            guidance: "Web-based passive DNS lookup services. No installation, no traffic sent to the target — you're querying a third party's existing database.",
+            tools: [
+                ["DNSDumpster", "i", "Free domain research & subdomain mapping", "https://dnsdumpster.com"],
+                ["SecurityTrails", "i", "Historical DNS & domain intelligence", "https://securitytrails.com"],
+                ["ViewDNS", "i", "Collection of DNS/IP lookup utilities", "https://viewdns.info"],
+                ["MXToolbox", "i", "DNS, MX, blacklist & email diagnostics", "https://mxtoolbox.com"],
+                ["DNSlytics", "i", "Reverse DNS, IP & domain intelligence", "https://dnslytics.com"],
+                ["DNS History services", "i", "Track historical DNS record changes", ""],
+                ["Passive DNS databases", "i", "Aggregated historical resolution data", ""],
+                ["Google Admin Toolbox Dig", "i", "Google's web-based dig tool", "https://toolbox.googleapps.com/apps/dig/"]
+            ]
+        }
+    ]
+},
+
+{
+    id: "routing", name: "Routing & BGP Toolkit",
+    groups: [
+        {
+            name: "BGP Looking Glasses 🌍",
+            guidance: "Public read-only web portals that show you real BGP routing tables from routers around the world. No install, no risk — just open the link.",
+            tools: [
+                ["BGP.Tools", "i", "Modern BGP/ASN lookup & looking glass", "https://bgp.tools"],
+                ["Hurricane Electric BGP Toolkit", "i", "Extensive free BGP/ASN/prefix lookup", "https://bgp.he.net"],
+                ["RIPEstat", "i", "RIPE's network information portal", "https://stat.ripe.net"],
+                ["RIPE NCC RIS", "i", "Routing Information Service data", "https://www.ripe.net/analyse/internet-measurements/routing-information-service-ris/"],
+                ["RouteViews", "i", "University of Oregon BGP data project", "http://www.routeviews.org"],
+                ["ThousandEyes BGP Tools", "i", "Commercial BGP visibility platform", ""],
+                ["Cisco BGP Looking Glasses", "i", "Vendor-hosted looking glass servers", ""],
+                ["University/ISP Looking Glass Servers", "i", "Independently run public looking glasses", ""]
+            ]
+        },
+        {
+            name: "BGP Analysis",
+            guidance: "Routing daemons and filter-generation tools you install and run yourself — used for actually operating BGP, not just looking it up.",
+            tools: [
+                ["bgpq4", "c", "Generate BGP prefix filters from IRR data", ""],
+                ["bgpq3", "c", "Predecessor to bgpq4", ""],
+                ["bird", "c", "Open-source routing daemon", "https://bird.network.cz"],
+                ["FRRouting (FRR)", "c", "Open-source routing protocol suite", "https://frrouting.org"],
+                ["Quagga", "c", "Legacy open-source routing suite", ""],
+                ["GoBGP", "c", "Go-based BGP implementation", "https://osrg.github.io/gobgp/"],
+                ["ExaBGP", "c", "BGP swiss-army-knife for automation", "https://github.com/Exa-Networks/exabgp"],
+                ["BIRD Looking Glass", "i", "Web front-end for BIRD-based glass", ""],
+                ["PeeringDB", "i", "Internet peering & interconnection database", "https://www.peeringdb.com"],
+                ["IRR Explorer", "i", "Cross-IRR route object explorer", "https://irrexplorer.nlnog.net"],
+                ["RADb", "i", "Routing Assets Database (IRR)", "https://www.radb.net"],
+                ["Hurricane Electric IPv4/IPv6 tools", "i", "Free IP/ASN lookup toolkit", "https://bgp.he.net"],
+                ["IPinfo ASN Explorer", "i", "ASN ownership & prefix lookup", "https://ipinfo.io/asn"]
+            ]
+        },
+        {
+            name: "Routing Protocol Analysis",
+            guidance: "Concept areas rather than single tools — each maps to specific platforms (FRR/BIRD for OSPF, route collectors like RouteViews/RIPE RIS for BGP, RPKI validators like Routinator/OctoRPKI, and NetFlow analyzers like ntopng).",
+            tools: [
+                ["OSPF topology tools", "c", "Visualize/validate OSPF adjacencies", ""],
+                ["BGP route collectors", "i", "Public route-collection projects", "http://www.routeviews.org"],
+                ["NetFlow analyzers", "c", "Traffic flow analysis platforms", ""],
+                ["RPKI validators", "c", "Validate route origin authorizations", "https://rpki.readthedocs.io"],
+                ["Route origin validation tools", "c", "Check announced-vs-authorized origins", ""],
+                ["AS-path analysis tools", "i", "Trace AS-path for a given prefix", ""],
+                ["Prefix hijacking detection tools", "c", "Monitor for unauthorized route announcements", ""]
+            ]
+        }
+    ]
+},
+
+{
+    id: "ipintel", name: "IP Address & ASN Intelligence",
+    guidance: "Passive lookup services for who owns an IP/ASN, where it's located, and its reputation. All read-only queries against third-party databases — safe to run against any address.",
+    tools: [
+        ["IPinfo", "i", "IP geolocation & ASN lookup", "https://ipinfo.io"],
+        ["MaxMind GeoIP", "i", "IP geolocation database & API", "https://www.maxmind.com"],
+        ["DB-IP", "i", "IP geolocation database", "https://db-ip.com"],
+        ["ARIN WHOIS", "i", "North America IP registry lookup", "https://whois.arin.net"],
+        ["RIPE NCC Database", "i", "Europe/Middle East IP registry", "https://apps.db.ripe.net"],
+        ["APNIC WHOIS", "i", "Asia-Pacific IP registry lookup", "https://wq.apnic.net"],
+        ["AFRINIC WHOIS", "i", "Africa IP registry lookup", "https://www.afrinic.net"],
+        ["LACNIC WHOIS", "i", "Latin America IP registry lookup", "https://www.lacnic.net"],
+        ["RADb", "i", "Routing Assets Database", "https://www.radb.net"],
+        ["BGP.Tools", "i", "ASN/prefix/BGP lookup", "https://bgp.tools"],
+        ["Hurricane Electric", "i", "IP/ASN/BGP toolkit", "https://bgp.he.net"],
+        ["Shodan IP Search", "i", "Internet-wide device/service search", "https://www.shodan.io"],
+        ["Censys IP Search", "i", "Internet-wide asset search engine", "https://search.censys.io"],
+        ["GreyNoise", "i", "Internet background-noise/scanner intel", "https://viz.greynoise.io"],
+        ["AbuseIPDB", "i", "Community-reported abusive IP database", "https://www.abuseipdb.com"],
+        ["AlienVault OTX", "i", "Open threat intelligence exchange", "https://otx.alienvault.com"],
+        ["VirusTotal IP Intelligence", "i", "IP reputation & related-file lookup", "https://www.virustotal.com"],
+        ["Spur", "i", "VPN/proxy/residential IP intelligence", "https://spur.us"],
+        ["IPQualityScore", "i", "Fraud & proxy/VPN detection", "https://www.ipqualityscore.com"],
+        ["IPVoid", "i", "IP blacklist & reputation check", "https://www.ipvoid.com"],
+        ["URLVoid", "i", "URL/domain reputation check", "https://www.urlvoid.com"]
+    ]
+},
+
+{
+    id: "discovery", name: "Network Discovery & Host Discovery",
+    groups: [
+        {
+            name: "Network Scanners",
+            guidance: "Actively probe a network to find live hosts. Generates real traffic and can trigger IDS/IPS alerts — only scan networks you own or are explicitly authorized to test.",
+            tools: [
+                ["Nmap ⭐", "c", "The industry-standard network scanner", "https://nmap.org"],
+                ["Masscan", "c", "Extremely fast internet-scale port scanner", "https://github.com/robertdavidgraham/masscan"],
+                ["RustScan", "c", "Fast port scanner, feeds results into Nmap", "https://github.com/RustScan/RustScan"],
+                ["Naabu", "c", "Fast port scanner from ProjectDiscovery", "https://github.com/projectdiscovery/naabu"],
+                ["ZMap", "c", "Internet-wide single-packet scanner", "https://zmap.io"],
+                ["Unicornscan", "c", "Async stateless network scanner", ""],
+                ["Angry IP Scanner", "c", "Simple cross-platform GUI IP/port scanner", "https://angryip.org"],
+                ["Advanced IP Scanner", "c", "Free Windows LAN scanner", "https://www.advanced-ip-scanner.com"],
+                ["fping", "c", "Ping sweep multiple hosts", ""],
+                ["arp-scan", "c", "ARP-based local network discovery", ""],
+                ["netdiscover", "c", "Active/passive ARP network discovery", ""]
+            ]
+        },
+        {
+            name: "Nmap Ecosystem",
+            guidance: "Nmap's core binary plus the tools built around it for GUI use, scripting, and automation of large scan jobs.",
+            tools: [
+                ["nmap", "c", "Core scanning engine", "https://nmap.org"],
+                ["zenmap", "c", "Official Nmap GUI", "https://nmap.org/zenmap/"],
+                ["NSE Scripts", "c", "Nmap Scripting Engine — vuln/enum scripts", "https://nmap.org/nsedoc/"],
+                ["Nmap XML Parser", "s", "Parse/report on Nmap XML output", ""],
+                ["NmapAutomator", "c", "Automated multi-stage Nmap scan wrapper", ""],
+                ["RustScan + Nmap", "c", "Speed-scan then deep-scan combo workflow", ""]
+            ]
+        },
+        {
+            name: "Discovery Techniques",
+            guidance: "These are methods, not individual tools — Nmap and most scanners above implement all of them via specific flags (e.g. `-sn` for host discovery, `-sS`/`-sA` for SYN/ACK scans, `-O` for OS fingerprinting).",
+            tools: [
+                ["ICMP discovery", "c", "Find hosts via ping sweeps", ""],
+                ["TCP SYN discovery", "c", "Half-open scan for host/port discovery", ""],
+                ["TCP ACK discovery", "c", "Map firewall rule sets", ""],
+                ["UDP discovery", "c", "Find UDP-based services", ""],
+                ["ARP discovery", "s", "Local-subnet host discovery via ARP", ""],
+                ["IPv6 neighbor discovery", "c", "IPv6 equivalent of ARP discovery", ""],
+                ["Service discovery", "c", "Identify running services on open ports", ""],
+                ["OS fingerprinting", "c", "Infer target operating system", ""]
+            ]
+        }
+    ]
+},
+
+{
+    id: "portscan", name: "Port Scanning & Service Enumeration",
+    groups: [
+        {
+            name: "Basic Tools",
+            guidance: "Port scanners plus protocol-specific enumeration clients (SMB, LDAP, SNMP, FTP). Active against the target — authorized use only.",
+            tools: [
+                ["Nmap", "c", "Port scanning & service/version detection", "https://nmap.org"],
+                ["Masscan", "c", "Internet-scale port scanning", ""],
+                ["RustScan", "c", "Fast port scanning", ""],
+                ["Naabu", "c", "Fast port scanning", ""],
+                ["Unicornscan", "c", "Async stateless scanning", ""],
+                ["nc", "s", "Manual banner-grabbing / port testing", ""],
+                ["telnet", "s", "Manual banner-grabbing / port testing", ""],
+                ["curl", "s", "HTTP service enumeration", ""],
+                ["openssl s_client", "s", "TLS service enumeration", ""],
+                ["smbclient", "c", "SMB share enumeration/access", ""],
+                ["rpcclient", "c", "Windows RPC enumeration", ""],
+                ["enum4linux-ng", "c", "SMB/AD enumeration", ""],
+                ["ldapsearch", "c", "LDAP directory queries", ""],
+                ["snmpwalk", "c", "SNMP tree enumeration", ""],
+                ["onesixtyone", "c", "Fast SNMP scanner", ""],
+                ["smtp-user-enum", "c", "SMTP username enumeration", ""],
+                ["ftp", "s", "Manual FTP service testing", ""],
+                ["showmount", "c", "NFS export enumeration", ""]
+            ]
+        },
+        {
+            name: "Common Enumeration Tools",
+            guidance: "Deeper Windows/Active Directory enumeration tools. BloodHound and NetExec map attack paths and are considered dual-use offensive tooling — strictly authorized engagements only.",
+            tools: [
+                ["enum4linux-ng", "c", "SMB/AD enumeration", ""],
+                ["CrackMapExec / NetExec", "x", "AD/network post-exploitation swiss-army-knife — auth. use only", ""],
+                ["BloodHound", "x", "Active Directory attack-path mapping — auth. use only", ""],
+                ["ldapsearch", "c", "LDAP directory queries", ""],
+                ["rpcclient", "c", "Windows RPC enumeration", ""],
+                ["smbclient", "c", "SMB share enumeration", ""],
+                ["snmpwalk", "c", "SNMP enumeration", ""],
+                ["nbtscan", "c", "NetBIOS name scanning", ""],
+                ["smbmap", "c", "SMB share/permission enumeration", ""],
+                ["Nuclei", "c", "Template-driven vulnerability scanning", "https://github.com/projectdiscovery/nuclei"]
+            ]
+        }
+    ]
+},
+
+{
+    id: "packetcap", name: "Packet Capture & Network Analysis",
+    groups: [
+        {
+            name: "Essential ⭐",
+            guidance: "The standard packet-capture tools every network/security engineer eventually installs. Passive capture on networks you're authorized to monitor.",
+            tools: [
+                ["Wireshark", "s", "The definitive GUI packet analyzer", "https://www.wireshark.org"],
+                ["TShark", "s", "Wireshark's command-line counterpart", "https://www.wireshark.org/docs/man-pages/tshark.html"],
+                ["tcpdump", "s", "Classic *nix command-line packet capture", "https://www.tcpdump.org"],
+                ["windump", "s", "tcpdump port for Windows", "https://www.winpcap.org/windump/"]
+            ]
+        },
+        {
+            name: "Other Tools",
+            guidance: "Specialized capture/analysis tools and full defensive detection platforms (Zeek, Suricata, Snort).",
+            tools: [
+                ["dumpcap", "s", "Wireshark's low-level capture engine", ""],
+                ["termshark", "s", "Terminal UI for tshark", ""],
+                ["ngrep", "s", "grep for network packets", ""],
+                ["netsniff-ng", "s", "High-performance packet sniffer/toolkit", ""],
+                ["EtherApe", "s", "Graphical network traffic monitor", ""],
+                ["Kismet", "c", "Wireless network detector & sniffer", "https://www.kismetwireless.net"],
+                ["Arkime", "s", "Large-scale packet capture & search platform", "https://arkime.com"],
+                ["Zeek", "s", "Network security monitoring platform", "https://zeek.org"],
+                ["Suricata", "s", "Open-source IDS/IPS engine", "https://suricata.io"],
+                ["Snort", "s", "Open-source IDS/IPS engine", "https://www.snort.org"]
+            ]
+        }
+    ]
+},
+
+{
+    id: "ids", name: "IDS / IPS / Network Detection",
+    guidance: "Defensive detection platforms — open-source engines plus commercial/enterprise NDR products. These sit on your network watching traffic, they don't attack anything.",
+    tools: [
+        ["Suricata", "s", "Open-source IDS/IPS engine", "https://suricata.io"],
+        ["Snort", "s", "Open-source IDS/IPS engine", "https://www.snort.org"],
+        ["Zeek", "s", "Network security monitoring platform", "https://zeek.org"],
+        ["Security Onion", "s", "Free Linux distro for NSM/IDS/log mgmt", "https://securityonionsolutions.com"],
+        ["SELKS", "s", "Suricata+Elastic+Logstash+Kibana+Scirius distro", ""],
+        ["Corelight", "i", "Commercial platform built on Zeek", "https://corelight.com"],
+        ["Cisco Secure Network Analytics", "i", "Enterprise NDR platform", ""],
+        ["Darktrace", "i", "AI-based enterprise NDR platform", "https://darktrace.com"],
+        ["Vectra AI", "i", "AI-based enterprise NDR platform", "https://vectra.ai"],
+        ["ExtraHop", "i", "Enterprise NDR platform", "https://extrahop.com"],
+        ["Microsoft Defender for IoT", "i", "Microsoft's OT/IoT network detection", ""]
+    ]
+},
+
+{
+    id: "vulnscan", name: "Vulnerability Scanning",
+    guidance: "Actively probes systems for known weaknesses — will generate a lot of traffic and can occasionally disrupt fragile services. Only scan assets you own or have written authorization to test.",
+    tools: [
+        ["Nessus", "c", "Industry-leading vulnerability scanner", "https://www.tenable.com/products/nessus"],
+        ["OpenVAS / Greenbone", "c", "Free open-source vulnerability scanner", "https://www.greenbone.net"],
+        ["Nuclei", "c", "Template-driven vulnerability scanner", "https://github.com/projectdiscovery/nuclei"],
+        ["Qualys", "c", "Cloud-based vulnerability management", "https://www.qualys.com"],
+        ["Rapid7 InsightVM", "c", "Vulnerability management platform", "https://www.rapid7.com/products/insightvm/"],
+        ["Tenable", "c", "Vulnerability management platform", "https://www.tenable.com"],
+        ["Nexpose", "c", "Rapid7's on-prem vuln scanner", ""],
+        ["Nmap NSE", "c", "Nmap's vulnerability-detection scripts", "https://nmap.org/nsedoc/"],
+        ["Nikto", "c", "Web server vulnerability scanner", "https://cirt.net/Nikto2"],
+        ["Wapiti", "c", "Web application vulnerability scanner", "https://wapiti-scanner.github.io"],
+        ["Vuls", "c", "Agentless vulnerability scanner", "https://vuls.io"],
+        ["Trivy", "s", "Container/IaC vulnerability scanner", "https://trivy.dev"],
+        ["Grype", "s", "Container image vulnerability scanner", "https://github.com/anchore/grype"],
+        ["Lynis", "s", "Linux/Unix security auditing tool", "https://cisofy.com/lynis/"],
+        ["Nipper", "s", "Network device configuration auditor", "https://www.titania.com/products/nipper"]
+    ]
+},
+
+{
+    id: "webapi", name: "Web & API Security Tools",
+    groups: [
+        {
+            name: "Web Proxy Tools",
+            guidance: "Intercepting proxies used to inspect and modify traffic between browser and app — standard for authorized web app testing.",
+            tools: [
+                ["Burp Suite", "c", "The industry-standard web proxy/testing suite", "https://portswigger.net/burp"],
+                ["OWASP ZAP", "c", "Free open-source web app scanner/proxy", "https://www.zaproxy.org"],
+                ["Caido", "c", "Modern lightweight web security toolkit", "https://caido.io"],
+                ["mitmproxy", "c", "Scriptable interactive HTTPS proxy", "https://mitmproxy.org"],
+                ["Fiddler", "s", "Web debugging proxy", "https://www.telerik.com/fiddler"],
+                ["Charles Proxy", "s", "HTTP/HTTPS traffic debugging proxy", "https://www.charlesproxy.com"]
+            ]
+        },
+        {
+            name: "Web Discovery",
+            guidance: "Brute-force content/subdomain discovery — sends a high volume of requests to the target. Authorized targets only.",
+            tools: [
+                ["ffuf", "c", "Fast web fuzzer", "https://github.com/ffuf/ffuf"],
+                ["gobuster", "c", "Directory/DNS/vhost brute-forcer", "https://github.com/OJ/gobuster"],
+                ["dirsearch", "c", "Web path brute-forcer", ""],
+                ["feroxbuster", "c", "Fast recursive content discovery", ""],
+                ["dirb", "c", "Classic web content scanner", ""],
+                ["wfuzz", "c", "Web application fuzzer", ""],
+                ["katana", "c", "Next-gen crawling/spidering framework", "https://github.com/projectdiscovery/katana"],
+                ["hakrawler", "c", "Fast web endpoint crawler", ""],
+                ["waybackurls", "s", "Pull known URLs from Wayback Machine", ""],
+                ["gau", "s", "Get all URLs from multiple sources", ""]
+            ]
+        },
+        {
+            name: "Web Scanning",
+            guidance: "Automated scanners that fingerprint and probe web applications for weaknesses.",
+            tools: [
+                ["Nikto", "c", "Web server vulnerability scanner", "https://cirt.net/Nikto2"],
+                ["Nuclei", "c", "Template-driven vulnerability scanner", ""],
+                ["httpx", "s", "Fast HTTP toolkit/prober", "https://github.com/projectdiscovery/httpx"],
+                ["WhatWeb", "s", "Website fingerprinting tool", ""],
+                ["Wappalyzer", "s", "Technology-stack detection", "https://www.wappalyzer.com"],
+                ["Nmap NSE", "c", "Web-focused Nmap scripts", ""]
+            ]
+        },
+        {
+            name: "API Testing",
+            guidance: "General-purpose HTTP/API clients — safe, standard developer tooling.",
+            tools: [
+                ["Postman", "s", "The standard API testing client", "https://www.postman.com"],
+                ["Insomnia", "s", "Open-source API client", "https://insomnia.rest"],
+                ["Burp Suite", "c", "API testing via intercepting proxy", ""],
+                ["OWASP ZAP", "c", "API scanning via proxy", ""],
+                ["curl", "s", "Command-line HTTP client", ""],
+                ["httpie", "s", "User-friendly command-line HTTP client", "https://httpie.io"],
+                ["Swagger/OpenAPI tools", "s", "API spec design/testing tooling", "https://swagger.io"],
+                ["GraphQL Voyager", "s", "GraphQL schema visualizer", ""],
+                ["InQL", "c", "Burp extension for GraphQL testing", ""]
+            ]
+        }
+    ]
+},
+
+{
+    id: "osint", name: "OSINT & Reconnaissance",
+    groups: [
+        {
+            name: "Domain Recon",
+            guidance: "Map an organization's external attack surface. Shodan/Censys are passive lookups against existing scan databases; Amass/Subfinder/theHarvester/Recon-ng actively query many sources including the target — use responsibly.",
+            tools: [
+                ["Amass", "c", "In-depth attack-surface mapping", "https://github.com/owasp-amass/amass"],
+                ["Subfinder", "c", "Passive subdomain discovery", ""],
+                ["theHarvester", "c", "Email/subdomain/name OSINT gathering", "https://github.com/laramies/theHarvester"],
+                ["SpiderFoot", "c", "Automated OSINT reconnaissance platform", "https://www.spiderfoot.net"],
+                ["Recon-ng", "c", "Modular web recon framework", ""],
+                ["Maltego", "i", "Visual link-analysis OSINT platform", "https://www.maltego.com"],
+                ["Shodan", "i", "Internet-wide device/service search", "https://www.shodan.io"],
+                ["Censys", "i", "Internet-wide asset search engine", "https://search.censys.io"],
+                ["FOFA", "i", "Chinese internet-asset search engine", "https://fofa.info"],
+                ["ZoomEye", "i", "Cyberspace search engine", "https://www.zoomeye.org"],
+                ["Netlas", "i", "Internet-wide scanning & search", "https://netlas.io"],
+                ["Criminal IP", "i", "Threat-intel focused search engine", "https://www.criminalip.io"]
+            ]
+        },
+        {
+            name: "Email & People OSINT",
+            guidance: "Look up whether accounts/credentials exist for an email or username. Have I Been Pwned/Hunter are passive breach-database lookups; username-enumeration tools actively query many platforms — be mindful of privacy/ethics even when technically passive.",
+            tools: [
+                ["Hunter", "i", "Find/verify email addresses for a domain", "https://hunter.io"],
+                ["Have I Been Pwned", "i", "Check if an email appears in known breaches", "https://haveibeenpwned.com"],
+                ["theHarvester", "c", "Email/name OSINT gathering", ""],
+                ["Sherlock", "c", "Hunt usernames across social platforms", "https://github.com/sherlock-project/sherlock"],
+                ["Maigret", "c", "Deep username OSINT across many sites", "https://github.com/soxoj/maigret"],
+                ["WhatsMyName", "c", "Username enumeration across sites", "https://whatsmyname.app"],
+                ["Holehe", "c", "Check if an email is registered on various sites", ""],
+                ["Epieos", "i", "Email OSINT lookup service", "https://epieos.com"]
+            ]
+        },
+        {
+            name: "Metadata",
+            guidance: "Extract hidden metadata (author, GPS, software versions) from documents/images/PDFs — purely local file analysis, no network traffic to any target.",
+            tools: [
+                ["ExifTool", "s", "The standard metadata extraction tool", "https://exiftool.org"],
+                ["FOCA", "s", "Metadata harvesting from public documents", ""],
+                ["Metagoofil", "s", "Extract metadata from public documents", ""],
+                ["PDF metadata analyzers", "s", "Inspect PDF document metadata", ""]
+            ]
+        }
+    ]
+},
+
+{
+    id: "searchengines", name: "Internet-Wide Search Engines",
+    guidance: "Search engines that continuously scan the entire internet and let you query the results — you never touch the target directly, you're searching someone else's dataset. Use only for authorized security research and defensive investigation.",
+    tools: [
+        ["Shodan", "i", "The original internet device/service search engine", "https://www.shodan.io"],
+        ["Censys", "i", "Internet-wide asset search engine", "https://search.censys.io"],
+        ["FOFA", "i", "Chinese internet-asset search engine", "https://fofa.info"],
+        ["ZoomEye", "i", "Cyberspace search engine", "https://www.zoomeye.org"],
+        ["Netlas", "i", "Internet-wide scanning & search", "https://netlas.io"],
+        ["Criminal IP ⚠️", "i", "Threat-intel focused search engine", "https://www.criminalip.io"],
+        ["LeakIX", "i", "Exposed-service & leak search engine", "https://leakix.net"],
+        ["ONYPHE", "i", "Cyber defense search engine", "https://www.onyphe.io"],
+        ["GreyNoise", "i", "Internet background-noise intelligence", "https://viz.greynoise.io"],
+        ["BinaryEdge", "i", "Internet scanning & threat intelligence", "https://www.binaryedge.io"],
+        ["Hunter", "i", "Email discovery for a domain", "https://hunter.io"],
+        ["PublicWWW", "i", "Source-code search engine", "https://publicwww.com"]
+    ]
+},
+
+{
+    id: "packetcraft", name: "Packet Crafting & Protocol Testing",
+    guidance: "Build and send custom, non-standard packets — used for IDS/firewall validation, protocol testing, and fuzzing. High potential for network disruption if misused; only run against lab environments or systems you're explicitly authorized to test.",
+    tools: [
+        ["Scapy", "c", "Python packet manipulation library", "https://scapy.net"],
+        ["hping3", "c", "TCP/IP packet crafting and testing", ""],
+        ["Nping", "c", "Nmap's packet generation tool", ""],
+        ["Nemesis", "c", "Command-line packet injection tool", ""],
+        ["Ostinato", "c", "GUI packet crafting/traffic generator", "https://ostinato.org"],
+        ["Tcpreplay", "c", "Replay captured traffic onto a network", "https://tcpreplay.appneta.com"],
+        ["PackETH", "c", "GUI Ethernet packet generator", ""],
+        ["Pypacker", "s", "Python packet parsing/crafting library", ""],
+        ["Boofuzz", "c", "Network protocol fuzzing framework", "https://github.com/jtpereyda/boofuzz"],
+        ["Peach Fuzzer", "c", "Commercial protocol fuzzing platform", "https://peachtech.gitlab.io/peach-fuzzer-community/"]
+    ]
+},
+
+{
+    id: "crypto", name: "Encryption, Hashing & Certificate Tools",
+    groups: [
+        {
+            name: "Basic Tools",
+            guidance: "Everyday crypto utilities. hashcat/John the Ripper are password-cracking tools — legitimate for auditing your own password policies or authorized engagements, not for cracking credentials you don't own.",
+            tools: [
+                ["openssl", "s", "The standard crypto/TLS toolkit", "https://www.openssl.org"],
+                ["ssh-keygen", "s", "Generate SSH key pairs", ""],
+                ["gpg", "s", "GNU Privacy Guard encryption", "https://gnupg.org"],
+                ["age", "s", "Modern simple file encryption tool", "https://age-encryption.org"],
+                ["certbot", "s", "Automated Let's Encrypt certificate tool", "https://certbot.eff.org"],
+                ["keytool", "s", "Java keystore/certificate management", ""],
+                ["cfssl", "s", "Cloudflare's PKI/TLS toolkit", "https://github.com/cloudflare/cfssl"],
+                ["step-cli", "s", "Smallstep's PKI/certificate CLI", "https://smallstep.com/cli/"],
+                ["hashcat", "x", "GPU-accelerated password recovery — auth. use only", "https://hashcat.net"],
+                ["John the Ripper", "x", "Password cracking tool — auth. use only", "https://www.openwall.com/john/"],
+                ["CyberChef", "s", "The web-based \"cyber Swiss army knife\"", "https://gchq.github.io/CyberChef/"]
+            ]
+        },
+        {
+            name: "TLS/SSL Analysis",
+            guidance: "Check certificate validity and TLS configuration strength — mostly free online scanners, safe against any public HTTPS site.",
+            tools: [
+                ["SSL Labs", "i", "Qualys' free TLS configuration grader", "https://www.ssllabs.com/ssltest/"],
+                ["testssl.sh", "s", "Command-line TLS/SSL scanner", "https://testssl.sh"],
+                ["sslscan", "s", "Fast TLS/SSL cipher scanner", ""],
+                ["sslyze", "s", "Python TLS configuration analyzer", "https://github.com/nabla-c0d3/sslyze"],
+                ["openssl s_client", "s", "Manual TLS connection testing", ""],
+                ["CipherScan", "s", "TLS cipher suite scanner", ""],
+                ["CryptCheck", "i", "Free online TLS configuration checker", "https://cryptcheck.fr"]
+            ]
+        }
+    ]
+},
+
+{
+    id: "firewall", name: "Firewall & Network Device Tools",
+    groups: [
+        { name: "Cisco", guidance: "Vendor CLI/management tools for Cisco security appliances — legitimate device access required.",
+          tools: [ ["Cisco ASA", "i", "Cisco's firewall platform", ""], ["Cisco FTD", "i", "Cisco Firepower Threat Defense", ""] ] },
+        { name: "Palo Alto", guidance: "Palo Alto Networks management/config tooling.",
+          tools: [ ["PAN-OS CLI", "i", "Palo Alto's firewall OS CLI", ""], ["Panorama", "i", "Centralized PAN-OS management", ""], ["Expedition", "i", "PAN migration/config tool", ""], ["Palo Alto Configuration Utility", "i", "Web-based device config UI", ""] ] },
+        { name: "Fortinet", guidance: "Fortinet management/config tooling.",
+          tools: [ ["FortiManager", "i", "Centralized Fortinet management", ""], ["FortiAnalyzer", "i", "Fortinet log analysis/reporting", ""], ["FortiOS CLI", "i", "FortiGate's operating system CLI", ""], ["FortiConverter", "i", "Migrate configs to FortiGate", ""] ] },
+        { name: "Juniper", guidance: "Juniper management/config tooling.",
+          tools: [ ["Junos CLI", "i", "Juniper's operating system CLI", ""], ["Juniper Apstra", "i", "Intent-based data center automation", ""], ["Juniper tools", "i", "General Juniper management utilities", ""] ] },
+        { name: "General tools", guidance: "Vendor-agnostic configuration auditing and change-management tools.",
+          tools: [ ["Nipper", "s", "Network device configuration auditor", "https://www.titania.com/products/nipper"], ["Batfish", "s", "Network configuration analysis engine", "https://www.batfish.org"], ["SuzieQ", "s", "Open-source network observability", "https://www.suzieq.net"], ["NetBox", "s", "Network source-of-truth/IPAM", "https://netboxlabs.com"], ["Oxidized", "s", "Network device config backup tool", "https://github.com/ytti/oxidized"], ["RANCID", "s", "Network config change management", "https://shrubbery.net/rancid/"] ] }
+    ]
+},
+
+{
+    id: "labsim", name: "Network Simulation & Lab Tools",
+    groups: [
+        { name: "Basic Tools", guidance: "Build virtual networks/labs to practice on — nothing here touches a real production network, so it's inherently safe. ⭐ Highly recommended category for hands-on learning.",
+          tools: [
+            ["EVE-NG", "s", "Popular multi-vendor network emulator", "https://www.eve-ng.net"],
+            ["GNS3", "s", "Free network emulation software", "https://www.gns3.com"],
+            ["Cisco Packet Tracer", "s", "Cisco's free network simulator", "https://www.netacad.com/courses/packet-tracer"],
+            ["Cisco Modeling Labs", "s", "Cisco's official network simulation platform", "https://developer.cisco.com/modeling-labs/"],
+            ["Mininet", "s", "SDN network emulator", "http://mininet.org"],
+            ["Kathará", "s", "Lightweight container-based network emulator", "https://www.kathara.org"],
+            ["VIRL", "s", "Predecessor to Cisco Modeling Labs", ""],
+            ["CML", "s", "Cisco Modeling Labs (personal edition)", ""],
+            ["PNetLab", "s", "Free alternative to EVE-NG", "https://pnetlab.com"],
+            ["VMware Workstation", "s", "Desktop virtualization platform", "https://www.vmware.com/products/workstation-pro.html"],
+            ["VirtualBox", "s", "Free open-source virtualization", "https://www.virtualbox.org"],
+            ["Hyper-V", "s", "Windows built-in virtualization", ""],
+            ["KVM/QEMU", "s", "Linux virtualization platform", "https://www.qemu.org"]
+          ]
+        },
+        { name: "Network Automation Labs", guidance: "Containerized labs built specifically for testing automation code (Ansible/Terraform) against realistic topologies.",
+          tools: [ ["Containerlab", "s", "Container-based network topology lab tool", "https://containerlab.dev"], ["Docker", "s", "Container platform", "https://www.docker.com"], ["Kubernetes", "s", "Container orchestration platform", "https://kubernetes.io"], ["Terraform", "s", "Infrastructure-as-code tool", "https://www.terraform.io"], ["Ansible", "s", "Agentless automation/config management", "https://www.ansible.com"] ] }
+    ]
+},
+
+{
+    id: "netauto", name: "Network Automation Tools",
+    groups: [
+        { name: "Automation", guidance: "Libraries and frameworks for scripting network device configuration — all safe developer tooling, only as risky as what you tell it to do.",
+          tools: [
+            ["Python", "s", "The language most network automation is built on", "https://www.python.org"],
+            ["Ansible", "s", "Agentless automation/config management", "https://www.ansible.com"],
+            ["Terraform", "s", "Infrastructure-as-code tool", "https://www.terraform.io"],
+            ["Pulumi", "s", "Infrastructure-as-code (general-purpose languages)", "https://www.pulumi.com"],
+            ["Netmiko", "s", "Python SSH library for network devices", "https://github.com/ktbyers/netmiko"],
+            ["Nornir", "s", "Python automation framework for networking", "https://nornir.readthedocs.io"],
+            ["NAPALM", "s", "Multi-vendor network device abstraction", "https://napalm.readthedocs.io"],
+            ["Paramiko", "s", "Python SSH2 protocol library", ""],
+            ["Scrapli", "s", "Fast Python screen-scraping library", ""],
+            ["pyATS", "s", "Cisco's test/automation framework", "https://developer.cisco.com/pyats/"],
+            ["Batfish", "s", "Network configuration analysis engine", "https://www.batfish.org"]
+          ]
+        },
+        { name: "Network Configuration", guidance: "Source-of-truth and config-backup platforms for documenting and version-controlling network state.",
+          tools: [ ["NetBox", "s", "Network source-of-truth/IPAM", "https://netboxlabs.com"], ["Nautobot", "s", "Fork of NetBox with extended features", "https://networktocode.com/nautobot/"], ["Oxidized", "s", "Network device config backup tool", ""], ["RANCID", "s", "Network config change management", ""] ] },
+        { name: "APIs", guidance: "General-purpose API clients used for interacting with network device/controller REST APIs.",
+          tools: [ ["Postman", "s", "API testing client", "https://www.postman.com"], ["Insomnia", "s", "Open-source API client", "https://insomnia.rest"], ["curl", "s", "Command-line HTTP client", ""], ["HTTPie", "s", "User-friendly HTTP client", "https://httpie.io"], ["Swagger", "s", "API design/documentation tooling", "https://swagger.io"], ["OpenAPI tools", "s", "OpenAPI spec tooling ecosystem", "" ] ] }
+    ]
+},
+
+{
+    id: "monitor", name: "Monitoring & Observability",
+    groups: [
+        { name: "Network Monitoring", guidance: "Platforms that continuously poll devices and alert on outages/issues. Defensive, passive-by-design.",
+          tools: [
+            ["PRTG", "s", "Popular all-in-one network monitoring", "https://www.paessler.com/prtg"],
+            ["SolarWinds", "s", "Enterprise network monitoring suite", "https://www.solarwinds.com"],
+            ["Zabbix", "s", "Open-source monitoring platform", "https://www.zabbix.com"],
+            ["Nagios", "s", "Classic open-source monitoring platform", "https://www.nagios.org"],
+            ["LibreNMS", "s", "Open-source auto-discovering network monitor", "https://www.librenms.org"],
+            ["Observium", "s", "Network monitoring platform", "https://www.observium.org"],
+            ["Cacti", "s", "RRDtool-based monitoring/graphing", "https://www.cacti.net"],
+            ["Checkmk", "s", "IT infrastructure monitoring platform", "https://checkmk.com"],
+            ["The Dude", "s", "MikroTik's free network mapping tool", ""]
+          ]
+        },
+        { name: "Metrics", guidance: "Time-series metrics collection and dashboards — the modern observability stack.",
+          tools: [ ["Prometheus", "s", "Time-series metrics & alerting", "https://prometheus.io"], ["Grafana", "s", "Metrics dashboards & visualization", "https://grafana.com"], ["InfluxDB", "s", "Time-series database", "https://www.influxdata.com"], ["Telegraf", "s", "Metrics collection agent", "" ] ] },
+        { name: "Flow Monitoring", guidance: "Analyze traffic flow records (NetFlow/sFlow/IPFIX) exported by routers/switches for bandwidth and behavior visibility.",
+          tools: [ ["NetFlow", "s", "Cisco's traffic flow export protocol", ""], ["sFlow", "s", "Sampled flow export standard", ""], ["IPFIX", "s", "IETF standard flow export protocol", ""], ["ntopng", "s", "Real-time traffic/flow analysis", "https://www.ntop.org/products/traffic-analysis/ntop/"], ["ElastiFlow", "s", "Flow analytics on the Elastic stack", "https://www.elastiflow.com"], ["Plixer Scrutinizer", "i", "Commercial flow analytics platform", "" ] ] }
+    ]
+},
+
+{
+    id: "netmap", name: "Network Mapping & Visualization",
+    guidance: "Documentation and diagramming tools — turn your network state into diagrams humans can actually read. Zero risk, purely descriptive.",
+    tools: [
+        ["NetBox", "s", "Network source-of-truth/IPAM", "https://netboxlabs.com"],
+        ["Nautobot", "s", "Source-of-truth platform (NetBox fork)", "https://networktocode.com/nautobot/"],
+        ["Netdisco", "s", "Open-source network discovery/inventory", "https://netdisco.org"],
+        ["LibreNMS", "s", "Auto-discovering monitoring platform", "https://www.librenms.org"],
+        ["SolarWinds Network Topology Mapper", "s", "Automated topology diagramming", ""],
+        ["Microsoft Visio", "s", "General-purpose diagramming software", ""],
+        ["draw.io", "s", "Free web-based diagramming tool", "https://app.diagrams.net"],
+        ["Lucidchart", "s", "Web-based diagramming tool", "https://www.lucidchart.com"],
+        ["Graphviz", "s", "Graph visualization software", "https://graphviz.org"],
+        ["Nmap topology", "s", "Zenmap's topology visualization", ""],
+        ["Nmap XML visualization tools", "s", "Third-party Nmap XML visualizers", ""]
+    ]
+},
+
+{
+    id: "perftest", name: "Performance & Traffic Testing",
+    guidance: "Generate real traffic load to measure bandwidth/throughput/jitter. Some of these tools can generate very high traffic volumes — only run against your own lab or systems you're authorized to load-test.",
+    tools: [
+        ["iPerf3", "c", "The standard bandwidth/throughput tester", "https://iperf.fr"],
+        ["iperf", "c", "Predecessor to iPerf3", ""],
+        ["Netperf", "c", "Network performance benchmarking tool", ""],
+        ["TRex", "c", "Cisco's high-performance traffic generator", "https://trex-tgn.cisco.com"],
+        ["Ostinato", "c", "GUI packet crafting/traffic generator", "https://ostinato.org"],
+        ["Tcpreplay", "c", "Replay captured traffic onto a network", ""],
+        ["pktgen", "c", "Linux kernel packet generator", ""],
+        ["Mausezahn", "c", "Fast traffic generator for testing", ""],
+        ["D-ITG", "c", "Distributed Internet Traffic Generator", ""],
+        ["Wireshark I/O Graphs", "s", "Visualize captured traffic patterns", ""]
+    ]
+},
+
+{
+    id: "siem", name: "SIEM & Log Analysis",
+    groups: [
+        { name: "Basic Tools", guidance: "Full SIEM platforms — the tools you already use daily (Splunk, Sentinel). Defensive by nature.",
+          tools: [
+            ["Splunk", "s", "The leading commercial SIEM platform", "https://www.splunk.com"],
+            ["Microsoft Sentinel", "s", "Microsoft's cloud-native SIEM", "https://azure.microsoft.com/products/microsoft-sentinel"],
+            ["Elastic Security", "s", "SIEM built on the Elastic stack", "https://www.elastic.co/security"],
+            ["Wazuh", "s", "Free open-source SIEM/XDR", "https://wazuh.com"],
+            ["Graylog", "s", "Open-source log management platform", "https://graylog.org"],
+            ["IBM QRadar", "s", "Enterprise SIEM platform", ""],
+            ["LogRhythm", "s", "Enterprise SIEM platform", ""],
+            ["ArcSight", "s", "Enterprise SIEM platform", ""],
+            ["Securonix", "s", "Cloud-native SIEM/UEBA platform", ""],
+            ["Sumo Logic", "s", "Cloud log analytics platform", "" ]
+          ]
+        },
+        { name: "Log Tools", guidance: "Everyday command-line tools for slicing and dicing raw logs — safe, universal Unix utilities.",
+          tools: [ ["grep", "s", "Pattern search in text", ""], ["awk", "s", "Text processing language", ""], ["sed", "s", "Stream text editor", ""], ["jq", "s", "Command-line JSON processor", "https://jqlang.github.io/jq/"], ["journalctl", "s", "Query systemd journal logs", ""], ["rsyslog", "s", "System logging daemon", ""], ["syslog-ng", "s", "Advanced syslog daemon", "" ] ] }
+    ]
+},
+
+{
+    id: "cloudnet", name: "Cloud Network Tools",
+    groups: [
+        { name: "AWS", guidance: "Official AWS-native diagnostics and security tooling — safe within your own account.",
+          tools: [ ["VPC Reachability Analyzer", "s", "Diagnose connectivity between resources", ""], ["VPC Flow Logs", "s", "Capture IP traffic metadata", ""], ["Transit Gateway Network Manager", "s", "Manage/monitor global networks", ""], ["Reachability Analyzer", "s", "Network path analysis tool", ""], ["CloudTrail", "s", "API activity logging", ""], ["GuardDuty", "s", "Threat detection service", ""], ["Security Hub", "s", "Centralized security findings", ""], ["AWS Network Firewall", "s", "Managed network firewall", ""], ["AWS Network Access Analyzer", "s", "Analyze network access paths", ""], ["AWS CLI", "s", "Command-line interface for AWS", "https://aws.amazon.com/cli/"] ] },
+        { name: "Azure", guidance: "Official Azure-native diagnostics and security tooling.",
+          tools: [ ["Network Watcher", "s", "Azure network diagnostics suite", ""], ["Connection Troubleshoot", "s", "Test connectivity between resources", ""], ["NSG Flow Logs", "s", "Network security group traffic logs", ""], ["Azure Firewall", "s", "Managed cloud firewall", ""], ["Microsoft Sentinel", "s", "Cloud-native SIEM", ""], ["Defender for Cloud", "s", "Cloud security posture management", ""], ["Azure CLI", "s", "Command-line interface for Azure", "https://learn.microsoft.com/cli/azure/"] ] },
+        { name: "GCP", guidance: "Official Google Cloud diagnostics and security tooling.",
+          tools: [ ["Connectivity Tests", "s", "Diagnose network path issues", ""], ["VPC Flow Logs", "s", "Capture IP traffic metadata", ""], ["Cloud Logging", "s", "Centralized logging platform", ""], ["Cloud IDS", "s", "Managed intrusion detection", ""], ["Security Command Center", "s", "Cloud security & risk platform", ""], ["gcloud CLI", "s", "Command-line interface for GCP", "https://cloud.google.com/sdk/gcloud" ] ] }
+    ]
+},
+
+{
+    id: "wireless", name: "Wireless Network Tools",
+    groups: [
+        {
+            name: "Wi-Fi Analysis",
+            guidance: "Kismet/inSSIDer/NetSpot passively survey nearby networks — safe. Aircrack-ng, Airgeddon, Wifite, hcxdumptool/hcxtools, and Bettercap are active Wi-Fi attack tools (deauth, handshake capture, WPA cracking) — legal only against networks you own or are explicitly authorized to test; unauthorized use is illegal in most jurisdictions.",
+            tools: [
+                ["Kismet", "c", "Wireless network detector & sniffer", "https://www.kismetwireless.net"],
+                ["Aircrack-ng", "x", "WEP/WPA key recovery suite — auth. use only", "https://www.aircrack-ng.org"],
+                ["Wireshark", "s", "Packet capture/analysis (incl. Wi-Fi)", "https://www.wireshark.org"],
+                ["Airgeddon", "x", "Wireless auditing script suite — auth. use only", ""],
+                ["Wifite", "x", "Automated Wi-Fi attack tool — auth. use only", ""],
+                ["hcxdumptool", "x", "WPA handshake/PMKID capture — auth. use only", ""],
+                ["hcxtools", "x", "Companion conversion tools for hcxdumptool — auth. use only", ""],
+                ["Bettercap", "x", "Network attack/MITM framework — auth. use only", "https://www.bettercap.org"],
+                ["NetSpot", "s", "Wi-Fi survey & heatmap tool", "https://www.netspotapp.com"],
+                ["Ekahau", "s", "Professional Wi-Fi site survey tool", "https://www.ekahau.com"],
+                ["inSSIDer", "s", "Wi-Fi network scanner", "" ]
+            ]
+        },
+        {
+            name: "Wireless Hardware Analysis",
+            guidance: "RF hardware for spectrum analysis and SDR work. Transmitting (not just receiving) is legally regulated — check your local spectrum/radio regulations before transmitting on any frequency.",
+            tools: [
+                ["Wi-Fi spectrum analyzers", "s", "Visualize RF spectrum usage", ""],
+                ["Software Defined Radio", "c", "General-purpose radio hardware/software", ""],
+                ["RTL-SDR", "c", "Cheap entry-level SDR dongle", "https://www.rtl-sdr.com"],
+                ["HackRF", "c", "Open-source SDR transceiver", "https://greatscottgadgets.com/hackrf/"],
+                ["Wi-Fi Pineapple", "x", "Wireless pentesting platform — auth. use only", "https://shop.hak5.org/products/wifi-pineapple" ]
+            ]
+        }
+    ]
+},
+
+{
+    id: "adwindows", name: "Active Directory & Windows Network Security",
+    guidance: "Mixed category — some of these are defensive audit tools (safe to run in your own domain), others are credential/attack-path tools used in adversary emulation. All require you to be operating in an environment you own or are explicitly authorized to test — several of these tools appear routinely in ransomware post-exploitation chains when misused.",
+    tools: [
+        ["BloodHound", "x", "AD attack-path mapping — auth. use only", "https://github.com/SpecterOps/BloodHound"],
+        ["SharpHound", "x", "BloodHound's AD data collector — auth. use only", ""],
+        ["NetExec", "x", "AD/network post-exploitation toolkit — auth. use only", "https://github.com/Pennyw0rth/NetExec"],
+        ["Impacket", "x", "Python library for Windows protocol attacks — auth. use only", "https://github.com/fortra/impacket"],
+        ["Responder", "x", "LLMNR/NBT-NS poisoning tool — auth. use only", ""],
+        ["Mimikatz", "x", "Windows credential extraction tool — auth. use only", ""],
+        ["PowerView", "x", "AD situational-awareness PowerShell toolkit — auth. use only", ""],
+        ["ADRecon", "c", "AD security configuration auditor", "https://github.com/adrecon/ADRecon"],
+        ["PingCastle", "c", "AD security assessment tool", "https://www.pingcastle.com"],
+        ["Purple Knight", "c", "AD security assessment tool", "https://www.purple-knight.com"],
+        ["LDAPSearch", "c", "LDAP directory query tool", ""],
+        ["Sysinternals Suite", "s", "Microsoft's official Windows diagnostic tools", "https://learn.microsoft.com/sysinternals/"],
+        ["Microsoft Defender for Identity", "s", "Microsoft's AD threat detection service", "" ]
+    ]
+},
+
+{
+    id: "compliance", name: "Configuration Audit & Compliance",
+    guidance: "Check configurations against security baselines (CIS benchmarks, etc.) — read-only auditing tools, safe to run against your own systems.",
+    tools: [
+        ["Batfish", "s", "Network configuration analysis engine", "https://www.batfish.org"],
+        ["Nipper", "s", "Network device configuration auditor", "https://www.titania.com/products/nipper"],
+        ["CIS-CAT", "s", "CIS benchmark compliance scanner", "https://www.cisecurity.org/cybersecurity-tools/cis-cat-pro"],
+        ["OpenSCAP", "s", "Open-source SCAP compliance scanner", "https://www.open-scap.org"],
+        ["Lynis", "s", "Linux/Unix security auditing tool", "https://cisofy.com/lynis/"],
+        ["Chef InSpec", "s", "Compliance-as-code testing framework", "https://docs.chef.io/inspec/"],
+        ["Ansible", "s", "Automation used for compliance remediation", "https://www.ansible.com"],
+        ["Terraform Compliance", "s", "BDD-style Terraform compliance testing", ""],
+        ["Tenable", "c", "Vulnerability & compliance management", "https://www.tenable.com"],
+        ["Qualys", "c", "Cloud-based compliance/vuln management", "https://www.qualys.com"],
+        ["Prisma Cloud", "s", "Cloud security posture management", "https://www.paloaltonetworks.com/prisma/cloud"],
+        ["CSPM tools", "s", "General cloud security posture category", "" ]
+    ]
+},
+
+{
+    id: "threatintel", name: "Threat Intelligence",
+    guidance: "Passive lookup platforms and feeds for IOCs (indicators of compromise) — free/community and paid. Read-only queries against existing intelligence databases.",
+    tools: [
+        ["VirusTotal", "i", "File/URL/IP/domain reputation aggregator", "https://www.virustotal.com"],
+        ["AlienVault OTX", "i", "Open threat intelligence exchange", "https://otx.alienvault.com"],
+        ["AbuseIPDB", "i", "Community-reported abusive IP database", "https://www.abuseipdb.com"],
+        ["GreyNoise", "i", "Internet background-noise/scanner intel", "https://viz.greynoise.io"],
+        ["MISP", "s", "Open-source threat intel sharing platform", "https://www.misp-project.org"],
+        ["OpenCTI", "s", "Open-source threat intel platform", "https://www.opencti.io"],
+        ["ThreatFox", "i", "Free IOC sharing platform (abuse.ch)", "https://threatfox.abuse.ch"],
+        ["URLhaus", "i", "Malicious URL sharing platform (abuse.ch)", "https://urlhaus.abuse.ch"],
+        ["MalwareBazaar", "i", "Malware sample sharing platform (abuse.ch)", "https://bazaar.abuse.ch"],
+        ["Spamhaus", "i", "IP/domain reputation & blocklists", "https://www.spamhaus.org"],
+        ["Cisco Talos Intelligence", "i", "Cisco's threat intelligence portal", "https://talosintelligence.com"],
+        ["Microsoft Threat Intelligence", "i", "Microsoft's threat intel offering", ""],
+        ["Google Threat Intelligence", "i", "Google/Mandiant threat intel offering", "" ]
+    ]
+}
+
+];
+/* ==========================================================================
+   PRISM APP LOGIC
+   ========================================================================== */
+
+let expandedNodes = new Set();   // ids of expanded folder nodes
+let activeNodeId = null;         // currently selected leaf (group/category with content shown)
+let activityLog = [];            // session-only log of live actions taken (diag commands, API calls)
+let keyStatusCache = {};         // service_id -> true/false, refreshed from main process
+
+/* ---------- helpers ---------- */
+
+function sevClass(sev) {
+    return { s: "sev-safe", i: "sev-info", c: "sev-caution", x: "sev-sensitive" }[sev] || "sev-info";
+}
+
+function sevLabel(sev) {
+    return { s: "SAFE", i: "ONLINE", c: "ACTIVE", x: "SENSITIVE" }[sev] || "";
+}
+
+function countTools(node) {
+    if (node.tools) return node.tools.length;
+    if (node.groups) return node.groups.reduce((sum, g) => sum + (g.tools ? g.tools.length : 0), 0);
+    return 0;
+}
+
+function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str == null ? "" : String(str);
+    return div.innerHTML;
+}
+
+/* ---------- sidebar rendering ---------- */
+
+function renderSidebar(filterText) {
+
+    const container = document.getElementById("sidebar-tree");
+    container.innerHTML = "";
+
+    const query = (filterText || "").trim().toLowerCase();
+
+    PRISM_DATA.forEach((category) => {
+
+        const catNode = buildCategoryNode(category, query);
+
+        if (catNode) container.appendChild(catNode);
+
+    });
+
+}
+
+function nodeMatchesQuery(name, query) {
+    return query === "" || name.toLowerCase().includes(query);
+}
+
+function categoryHasMatch(category, query) {
+
+    if (query === "") return true;
+
+    if (nodeMatchesQuery(category.name, query)) return true;
+
+    if (category.groups) {
+
+        return category.groups.some((g) =>
+            nodeMatchesQuery(g.name, query) || g.tools.some((t) => nodeMatchesQuery(t[0], query))
+        );
+
+    }
+
+    if (category.tools) {
+
+        return category.tools.some((t) => nodeMatchesQuery(t[0], query));
+
+    }
+
+    return false;
+
+}
+
+function buildCategoryNode(category, query) {
+
+    if (!categoryHasMatch(category, query)) return null;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "node";
+
+    const hasChildren = !!(category.groups || category.tools);
+    const isExpanded = expandedNodes.has(category.id) || query !== "";
+
+    const row = document.createElement("div");
+    row.className = "node-row" + (isExpanded ? " expanded" : "") + (activeNodeId === category.id ? " active" : "");
+    row.onclick = () => toggleCategory(category);
+
+    row.innerHTML = `
+        <div class="node-toggle">${hasChildren ? "+" : ""}</div>
+        <div class="node-label">${escapeHtml(category.name)}</div>
+        ${category.functional ? '<span class="func-badge">LIVE</span>' : ""}
+        <div class="node-count">${countTools(category)}</div>
+    `;
+
+    wrapper.appendChild(row);
+
+    if (hasChildren) {
+
+        const childrenWrap = document.createElement("div");
+        childrenWrap.className = "node-children" + (isExpanded ? " open" : "");
+
+        if (category.groups) {
+
+            category.groups.forEach((group, gIdx) => {
+
+                const groupId = category.id + "::" + gIdx;
+
+                const groupNode = buildGroupNode(category, group, groupId, query);
+
+                if (groupNode) childrenWrap.appendChild(groupNode);
+
+            });
+
+        } else if (category.tools) {
+
+            childrenWrap.appendChild(buildToolLeafList(category, category.tools, query));
+
+        }
+
+        wrapper.appendChild(childrenWrap);
+
+        if (isExpanded) {
+            requestAnimationFrame(() => { childrenWrap.style.maxHeight = childrenWrap.scrollHeight + "px"; });
+        }
+
+    }
+
+    return wrapper;
+
+}
+
+function buildGroupNode(category, group, groupId, query) {
+
+    const matches = query === "" ||
+        nodeMatchesQuery(group.name, query) ||
+        group.tools.some((t) => nodeMatchesQuery(t[0], query));
+
+    if (!matches) return null;
+
+    const wrapper = document.createElement("div");
+    wrapper.className = "node";
+
+    const isExpanded = expandedNodes.has(groupId) || query !== "";
+
+    const row = document.createElement("div");
+    row.className = "node-row" + (isExpanded ? " expanded" : "") + (activeNodeId === groupId ? " active" : "");
+    row.onclick = (e) => { e.stopPropagation(); toggleGroup(category, group, groupId); };
+
+    row.innerHTML = `
+        <div class="node-toggle">+</div>
+        <div class="node-label">${escapeHtml(group.name)}</div>
+        ${group.functional ? '<span class="func-badge">LIVE</span>' : ""}
+        <div class="node-count">${group.tools.length}</div>
+    `;
+
+    wrapper.appendChild(row);
+
+    const childrenWrap = document.createElement("div");
+    childrenWrap.className = "node-children" + (isExpanded ? " open" : "");
+    childrenWrap.appendChild(buildToolLeafList(category, group.tools, query, group));
+    wrapper.appendChild(childrenWrap);
+
+    if (isExpanded) {
+        requestAnimationFrame(() => { childrenWrap.style.maxHeight = childrenWrap.scrollHeight + "px"; });
+    }
+
+    return wrapper;
+
+}
+
+function buildToolLeafList(category, tools, query, group) {
+
+    const list = document.createElement("div");
+
+    tools.forEach((t) => {
+
+        if (query !== "" && !nodeMatchesQuery(t[0], query)) return;
+
+        const leaf = document.createElement("div");
+        leaf.className = "node-row";
+        leaf.style.paddingLeft = "8px";
+        leaf.onclick = (e) => {
+            e.stopPropagation();
+            selectContent(category, group || null, t);
+        };
+
+        leaf.innerHTML = `
+            <div class="node-toggle leaf-spacer"></div>
+            <i class="sev-dot ${sevClass(t[1])}"></i>
+            <div class="node-label">${escapeHtml(t[0])}</div>
+        `;
+
+        list.appendChild(leaf);
+
+    });
+
+    return list;
+
+}
+
+/* ---------- expand/collapse ---------- */
+
+function toggleCategory(category) {
+
+    const hasChildren = !!(category.groups || category.tools);
+
+    if (hasChildren) {
+
+        if (expandedNodes.has(category.id)) {
+            expandedNodes.delete(category.id);
+        } else {
+            expandedNodes.add(category.id);
+        }
+
+    }
+
+    // Clicking a flat category (no groups) also loads its content directly
+    if (!category.groups && category.tools) {
+        renderMainForCategory(category);
+    } else if (category.functional && !category.groups) {
+        renderMainForCategory(category);
+    }
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function toggleGroup(category, group, groupId) {
+
+    if (expandedNodes.has(groupId)) {
+        expandedNodes.delete(groupId);
+    } else {
+        expandedNodes.add(groupId);
+    }
+
+    renderMainForGroup(category, group);
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function handleSearch(value) {
+    renderSidebar(value);
+}
+
+/* ---------- main content rendering ---------- */
+
+function setBreadcrumb(text) {
+    document.getElementById("breadcrumb").innerHTML = text;
+}
+
+function renderMainForCategory(category) {
+
+    activeNodeId = category.id;
+
+    stopStatsPolling();
+    updateQuizNavActive();
+    updateApiNavActive();
+    updateDashNavActive();
+    updateUmNavActive();
+
+    setBreadcrumb(`<b>${escapeHtml(category.name)}</b>`);
+
+    const scroll = document.getElementById("content-scroll");
+
+    if (category.functional && category.id === "netdiag") {
+
+        scroll.innerHTML = buildModePill(true) + buildRunnerGrid(category.tools);
+        wireRunnerButtons(scroll);
+        return;
+
+    }
+
+    if (category.groups) {
+
+        let html = "";
+
+        category.groups.forEach((group) => {
+            html += buildGroupBlock(group);
+        });
+
+        scroll.innerHTML = html;
+        wireRunnerButtons(scroll);
+        return;
+
+    }
+
+    scroll.innerHTML = buildModePill(false) + buildGroupBlock({ name: category.name, guidance: category.guidance, tools: category.tools });
+
+}
+
+function renderMainForGroup(category, group) {
+
+    activeNodeId = category.id + "::" + category.groups.indexOf(group);
+
+    stopStatsPolling();
+    updateQuizNavActive();
+    updateApiNavActive();
+    updateDashNavActive();
+    updateUmNavActive();
+
+    setBreadcrumb(`${escapeHtml(category.name)} <span style="opacity:.4;">›</span> <b>${escapeHtml(group.name)}</b>`);
+
+    const scroll = document.getElementById("content-scroll");
+
+    if (group.functional) {
+
+        scroll.innerHTML = buildModePill(true) +
+            `<div class="group-guidance">${escapeHtml(group.guidance || "")}</div>` +
+            buildRunnerGrid(group.tools);
+
+        wireRunnerButtons(scroll);
+        return;
+
+    }
+
+    scroll.innerHTML = buildModePill(false) + buildGroupBlock(group);
+
+    wireRunnerButtons(scroll);
+
+}
+
+function selectContent(category, group, tool) {
+
+    // Clicking an individual tool just scrolls/focuses its parent group/category view
+    if (group) {
+        renderMainForGroup(category, group);
+    } else {
+        renderMainForCategory(category);
+    }
+
+}
+
+function buildModePill(isLive) {
+
+    if (isLive) {
+        return `<div class="mode-pill live">⚡ LIVE — runs real commands from this app</div>`;
+    }
+
+    return `<div class="mode-pill ref">📖 REFERENCE — guidance &amp; links, not run from inside PRISM</div>`;
+
+}
+
+function buildGroupBlock(group) {
+
+    let html = `<div class="group-block">`;
+    html += `<div class="group-heading">${escapeHtml(group.name)}</div>`;
+
+    if (group.guidance) {
+        html += `<div class="group-guidance">${escapeHtml(group.guidance)}</div>`;
+    }
+
+    html += `<div class="tool-grid">`;
+
+    group.tools.forEach((t) => {
+
+        const [name, sev, desc, link] = t;
+        const isUrl = link && (link.startsWith("http://") || link.startsWith("https://"));
+
+        html += `
+            <div class="tool-card">
+                <div class="tool-card-head">
+                    <div class="tool-name">${escapeHtml(name)}</div>
+                    <div class="sev-tag ${sevClass(sev)}">${sevLabel(sev)}</div>
+                </div>
+                <div class="tool-desc">${escapeHtml(desc || "")}</div>
+                ${isUrl ? `<a class="tool-link" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer">🔗 Open site</a>` : ""}
+            </div>
+        `;
+
+    });
+
+    html += `</div></div>`;
+
+    return html;
+
+}
+
+/* ---------- functional command runner ---------- */
+
+function buildRunnerGrid(tools) {
+
+    let html = `<div class="runner-grid">`;
+
+    tools.forEach((t, idx) => {
+
+        const [name, sev, desc, cmdTemplate, commandId] = t;
+        const needsTarget = (cmdTemplate || "").includes("{target}");
+        const isAvailable = !!commandId;
+
+        html += `
+            <div class="runner-card" data-idx="${idx}">
+                <div class="runner-head">
+                    <div class="runner-name">${escapeHtml(name)}</div>
+                    <div class="sev-tag ${sevClass(sev)}">${sevLabel(sev)}</div>
+                </div>
+                <div class="runner-desc">${escapeHtml(desc || "")}</div>
+                ${isAvailable ? `
+                <div class="runner-row">
+                    ${needsTarget ? `<input type="text" placeholder="e.g. google.com or 8.8.8.8" class="runner-target" value="google.com">` : ""}
+                    <button class="run-btn" data-command-id="${escapeHtml(commandId)}" data-needs-target="${needsTarget}">▶ Run</button>
+                </div>
+                <div class="cmd-preview">$ <b class="cmd-preview-text">${escapeHtml((cmdTemplate || "").replace("{target}", "google.com"))}</b></div>
+                <div class="runner-output empty">Output will appear here after you run this command.</div>
+                ` : `<div class="runner-output empty">Not runnable from PRISM directly — see description for how to get/use this tool.</div>`}
+            </div>
+        `;
+
+    });
+
+    html += `</div>`;
+
+    return html;
+
+}
+
+function wireRunnerButtons(scope) {
+
+    scope.querySelectorAll(".run-btn").forEach((btn) => {
+
+        btn.addEventListener("click", async () => {
+
+            const card = btn.closest(".runner-card");
+            const output = card.querySelector(".runner-output");
+            const commandId = btn.getAttribute("data-command-id");
+            const needsTarget = btn.getAttribute("data-needs-target") === "true";
+            const targetInput = card.querySelector(".runner-target");
+            const target = targetInput ? (targetInput.value.trim() || "google.com") : "";
+
+            // Client-side pre-check only — the real validation that matters
+            // happens again in the main process before anything executes.
+            if (needsTarget && !/^[a-zA-Z0-9]([a-zA-Z0-9\-.:]{0,253})[a-zA-Z0-9]$|^[a-zA-Z0-9]$/.test(target)) {
+                output.classList.remove("empty");
+                output.classList.add("err");
+                output.textContent = "Invalid target — only letters, numbers, dots, colons, and hyphens are allowed.";
+                return;
+            }
+
+            const preview = card.querySelector(".cmd-preview-text");
+            if (preview && needsTarget) preview.textContent = preview.textContent.replace(/^\S+/, target);
+
+            output.classList.remove("empty", "err");
+            output.textContent = "Running...";
+
+            btn.disabled = true;
+
+            try {
+
+                const result = await runDiagnosticCommand(commandId, needsTarget ? target : "");
+
+                output.textContent = result;
+                logActivity(`Ran ${commandId}${needsTarget ? " " + target : ""}`);
+
+            } catch (e) {
+
+                output.classList.add("err");
+                output.textContent = "Error: " + e.message;
+
+            } finally {
+
+                btn.disabled = false;
+
+            }
+
+        });
+
+    });
+
+}
+
+/* Execution bridge — when PRISM is running inside its Electron shell, the
+   preload script exposes window.prismAPI.runDiag(commandId, target), which
+   asks the main process to run one of a FIXED set of pre-approved commands
+   (see main.js's DIAG_COMMANDS). The renderer never sends a raw shell
+   string — only a command id and a target that gets re-validated on the
+   main-process side too. In this browser preview (no Electron backend
+   attached), we can't actually execute system commands, so we say so
+   plainly rather than faking results. */
+
+async function runDiagnosticCommand(commandId, target) {
+
+    if (window.prismAPI && typeof window.prismAPI.runDiag === "function") {
+
+        const result = await window.prismAPI.runDiag(commandId, target);
+
+        if (!result.ok) throw new Error(result.error || "Command failed");
+
+        return result.data;
+
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    return `[PREVIEW MODE — no execution backend attached]\n\nWould run command id "${commandId}"${target ? " against target: " + target : ""}\n\nLive execution requires running inside the PRISM desktop app with its command-execution backend connected.`;
+
+}
+
+/* ---------- activity log ---------- */
+
+function logActivity(text) {
+
+    activityLog.unshift({ text, time: new Date().toLocaleTimeString() });
+
+    if (activityLog.length > 12) activityLog.pop();
+
+    if (activeNodeId === "dashboard") renderActivityList();
+
+}
+
+function renderActivityList() {
+
+    const el = document.getElementById("activity-list");
+
+    if (!el) return;
+
+    if (activityLog.length === 0) {
+        el.innerHTML = `<div class="activity-empty">Nothing run yet this session — try a lookup in Network Diagnostics, DNS Toolkit, or Live Intel APIs.</div>`;
+        return;
+    }
+
+    el.innerHTML = activityLog.map((a) =>
+        `<div class="activity-item"><span>${escapeHtml(a.text)}</span><span class="activity-time">${a.time}</span></div>`
+    ).join("");
+
+}
+
+/* ---------- Dashboard ---------- */
+
+function showDashboard() {
+
+    activeNodeId = "dashboard";
+
+    updateQuizNavActive();
+    updateApiNavActive();
+    updateDashNavActive();
+    updateUmNavActive();
+
+    setBreadcrumb(`<b>🏠 Dashboard</b>`);
+
+    const totalTools = PRISM_DATA.reduce((sum, c) => sum + countTools(c), 0);
+    const connectedKeys = Object.values(keyStatusCache).filter(Boolean).length;
+
+    document.getElementById("content-scroll").innerHTML = `
+
+        <div class="dash-stats-row">
+            <div class="dash-stat-card"><div class="dash-stat-num">${PRISM_DATA.length}</div><div class="dash-stat-lbl">CATEGORIES</div></div>
+            <div class="dash-stat-card"><div class="dash-stat-num">${totalTools}</div><div class="dash-stat-lbl">TOOLS MAPPED</div></div>
+            <div class="dash-stat-card"><div class="dash-stat-num">3</div><div class="dash-stat-lbl">LIVE TOOLKITS</div></div>
+            <div class="dash-stat-card"><div class="dash-stat-num">${connectedKeys} / 7</div><div class="dash-stat-lbl">API KEYS CONNECTED</div></div>
+        </div>
+
+        <div class="group-heading">System Monitor <span class="chart-preview-badge" id="stat-badge-global" style="display:none;">PREVIEW DATA</span></div>
+        <div class="chart-grid">
+            <div class="chart-card">
+                <div class="chart-card-head"><span class="chart-title">CPU Usage</span><span class="chart-value" id="stat-value-cpu">—</span></div>
+                <canvas id="stat-canvas-cpu"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-head"><span class="chart-title">Memory Usage</span><span class="chart-value" id="stat-value-mem">—</span></div>
+                <canvas id="stat-canvas-mem"></canvas>
+            </div>
+            <div class="chart-card">
+                <div class="chart-card-head"><span class="chart-title">Network Throughput</span><span class="chart-value" id="stat-value-net">—</span></div>
+                <canvas id="stat-canvas-net"></canvas>
+            </div>
+        </div>
+
+        <div class="group-heading">Quick Launch</div>
+        <div class="dash-launch-grid">
+            <div class="dash-launch-card" onclick="jumpToCategory('netdiag')">
+                <div class="dash-launch-icon">🌐</div>
+                <div class="dash-launch-title">Network Diagnostics</div>
+                <div class="dash-launch-sub">Ping, tracert, netstat &amp; more — live</div>
+            </div>
+            <div class="dash-launch-card" onclick="jumpToCategory('dns')">
+                <div class="dash-launch-icon">🔎</div>
+                <div class="dash-launch-title">DNS Toolkit</div>
+                <div class="dash-launch-sub">Live DNS lookups + intel links</div>
+            </div>
+            <div class="dash-launch-card" onclick="showLiveApisTab()">
+                <div class="dash-launch-icon">🛰️</div>
+                <div class="dash-launch-title">Live Intel APIs</div>
+                <div class="dash-launch-sub">IP/threat/subdomain lookups</div>
+            </div>
+            <div class="dash-launch-card" onclick="showQuizTab()">
+                <div class="dash-launch-icon">🎮</div>
+                <div class="dash-launch-title">Live Quiz</div>
+                <div class="dash-launch-sub">The CyberSecurity Guy MCQ</div>
+            </div>
+        </div>
+
+        <div class="group-heading">Recent Activity <span style="font-size:11px;color:var(--text-dim);font-weight:400;">(this session only)</span></div>
+        <div class="activity-list" id="activity-list"></div>
+
+    `;
+
+    renderActivityList();
+    startStatsPolling();
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function jumpToCategory(categoryId) {
+
+    const category = PRISM_DATA.find((c) => c.id === categoryId);
+
+    if (!category) return;
+
+    expandedNodes.add(categoryId);
+
+    renderMainForCategory(category);
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function updateDashNavActive() {
+
+    const btn = document.getElementById("dashboard-nav-btn");
+
+    if (btn) btn.classList.toggle("active", activeNodeId === "dashboard");
+
+}
+
+/* ---------- quiz tab ---------- */
+
+function showQuizTab() {
+
+    activeNodeId = "quiz-tab";
+
+    stopStatsPolling();
+
+    setBreadcrumb(`<b>🎮 Live Quiz</b> — The CyberSecurity Guy MCQ`);
+
+    document.getElementById("content-scroll").innerHTML = `
+        <div class="quiz-frame-wrap" id="quiz-frame-wrap">
+            <button class="fullscreen-btn" onclick="toggleQuizFullscreen()">⛶ Fullscreen</button>
+            <iframe src="quiz.html" title="Live Quiz" id="quiz-iframe"></iframe>
+        </div>
+    `;
+
+    updateQuizNavActive();
+    updateApiNavActive();
+    updateDashNavActive();
+    updateUmNavActive();
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function toggleQuizFullscreen() {
+
+    const wrap = document.getElementById("quiz-frame-wrap");
+
+    if (!document.fullscreenElement) {
+        wrap.requestFullscreen().catch(() => {});
+    } else {
+        document.exitFullscreen();
+    }
+
+}
+
+function updateQuizNavActive() {
+
+    const btn = document.getElementById("quiz-nav-btn");
+
+    if (btn) btn.classList.toggle("active", activeNodeId === "quiz-tab");
+
+}
+
+/* ---------- Live Intel APIs ---------- */
+
+const NO_KEY_APIS = [
+    { id: "shodan-internetdb", name: "Shodan InternetDB", desc: "Open ports, hostnames & known CVEs for an IP", needsType: false },
+    { id: "crtsh", name: "crt.sh", desc: "Certificate-transparency subdomain enumeration", needsType: false },
+    { id: "google-doh", name: "Google DNS-over-HTTPS", desc: "Live DNS resolution as JSON", needsType: true },
+    { id: "cloudflare-doh", name: "Cloudflare DNS-over-HTTPS", desc: "Alternate DoH resolver", needsType: true },
+    { id: "ssllabs", name: "SSL Labs Analyze", desc: "Full TLS/certificate configuration grading", needsType: false },
+    { id: "hackertarget-whois", name: "HackerTarget WHOIS", desc: "Domain registration lookup", needsType: false },
+    { id: "hackertarget-dnslookup", name: "HackerTarget DNS Lookup", desc: "Basic DNS record lookup", needsType: false },
+    { id: "hackertarget-reverseiplookup", name: "HackerTarget Reverse IP", desc: "Other domains hosted on the same IP", needsType: false },
+    { id: "rdap", name: "RDAP Domain Lookup", desc: "Modern IANA-standard WHOIS replacement", needsType: false },
+    { id: "urlhaus", name: "URLhaus Host Check", desc: "Has this host served malware URLs? (abuse.ch)", needsType: false },
+    { id: "threatfox", name: "ThreatFox IOC Search", desc: "Search known malware IOCs (abuse.ch)", needsType: false },
+    { id: "malwarebazaar", name: "MalwareBazaar Hash Lookup", desc: "Look up a file hash (abuse.ch)", needsType: false }
+];
+
+const KEY_APIS = [
+    { id: "ipinfo", name: "IPinfo.io", desc: "IP geolocation + ASN", signup: "https://ipinfo.io/signup", limit: "50,000 req/month free" },
+    { id: "abuseipdb", name: "AbuseIPDB", desc: "IP abuse/reputation reports", signup: "https://www.abuseipdb.com/register", limit: "1,000 checks/day free" },
+    { id: "virustotal", name: "VirusTotal", desc: "File/URL/IP/domain reputation", signup: "https://www.virustotal.com/gui/join-us", limit: "4/min, 500/day free" },
+    { id: "otx", name: "AlienVault OTX", desc: "Threat intel feeds & IOC search", signup: "https://otx.alienvault.com", limit: "Generous free account" },
+    { id: "greynoise", name: "GreyNoise Community", desc: "Is this IP just internet noise?", signup: "https://viz.greynoise.io/signup", limit: "Limited daily lookups" },
+    { id: "censys", name: "Censys", desc: "Internet-wide asset search", signup: "https://search.censys.io/register", limit: "Limited queries/month" },
+    { id: "securitytrails", name: "SecurityTrails", desc: "Historical DNS/subdomains", signup: "https://securitytrails.com/app/signup", limit: "Limited queries/month" }
+];
+
+async function refreshKeyStatus() {
+
+    if (window.prismAPI && typeof window.prismAPI.keyStatus === "function") {
+        keyStatusCache = await window.prismAPI.keyStatus();
+    }
+
+}
+
+function showLiveApisTab() {
+
+    activeNodeId = "live-apis";
+
+    stopStatsPolling();
+    updateQuizNavActive();
+    updateDashNavActive();
+    updateApiNavActive();
+    updateUmNavActive();
+
+    setBreadcrumb(`<b>🛰️ Live Intel APIs</b>`);
+
+    refreshKeyStatus().then(renderLiveApisContent);
+
+    renderLiveApisContent();
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function updateApiNavActive() {
+
+    const btn = document.getElementById("api-nav-btn");
+
+    if (btn) btn.classList.toggle("active", activeNodeId === "live-apis");
+
+}
+
+function renderLiveApisContent() {
+
+    const scroll = document.getElementById("content-scroll");
+
+    let html = buildModePill(true);
+
+    html += `<div class="group-guidance">Two tiers here: the first group needs no signup at all — just type a target and run it. The second group needs a free API key pasted in below (each has a generous free tier). Every call is made from PRISM's Electron backend, never from the page itself, so your keys never sit in browser storage.</div>`;
+
+    html += `<div class="group-heading" style="margin-top:6px;">No Key Required</div>`;
+    html += `<div class="runner-grid">`;
+
+    NO_KEY_APIS.forEach((api) => {
+
+        html += `
+            <div class="runner-card" data-api-id="${api.id}">
+                <div class="runner-head">
+                    <div class="runner-name">${escapeHtml(api.name)}</div>
+                    <div class="sev-tag sev-safe">FREE</div>
+                </div>
+                <div class="runner-desc">${escapeHtml(api.desc)}</div>
+                <div class="runner-row">
+                    <input type="text" placeholder="e.g. google.com or 8.8.8.8" class="api-target" value="google.com">
+                    <button class="api-run-btn" data-service-id="${api.id}">▶ Run</button>
+                </div>
+                <div class="runner-output empty">Output will appear here after you run this lookup.</div>
+            </div>
+        `;
+
+    });
+
+    html += `</div>`;
+
+    html += `<div class="group-heading" style="margin-top:30px;">API-Key Required <span style="font-size:11px;color:var(--text-dim);font-weight:400;">— add your free key below to unlock</span></div>`;
+    html += `<div class="settings-panel">`;
+
+    KEY_APIS.forEach((api) => {
+
+        const connected = !!keyStatusCache[api.id];
+
+        html += `
+            <div class="key-row">
+                <div class="key-row-name">${escapeHtml(api.name)}</div>
+                <input type="password" placeholder="Paste ${escapeHtml(api.name)} API key..." class="key-input" data-service-id="${api.id}" ${connected ? 'value="••••••••••••••••"' : ""}>
+                <button class="key-save-btn" data-service-id="${api.id}">💾 Save</button>
+                <button class="key-clear-btn" data-service-id="${api.id}">✕</button>
+                <span class="key-badge ${connected ? "connected" : "missing"}">${connected ? "CONNECTED" : "NOT SET"}</span>
+            </div>
+        `;
+
+    });
+
+    html += `</div>`;
+
+    html += `<div class="group-heading" style="margin-top:10px;">Run a Key-Based Lookup</div>`;
+    html += `<div class="runner-grid">`;
+
+    KEY_APIS.forEach((api) => {
+
+        const connected = !!keyStatusCache[api.id];
+
+        html += `
+            <div class="runner-card" data-api-id="${api.id}">
+                <div class="runner-head">
+                    <div class="runner-name">${escapeHtml(api.name)}</div>
+                    <span class="key-badge ${connected ? "connected" : "missing"}">${connected ? "CONNECTED" : "NOT SET"}</span>
+                </div>
+                <div class="runner-desc">${escapeHtml(api.desc)} · <a class="tool-link" href="${api.signup}" target="_blank" rel="noopener noreferrer" style="margin-left:4px;">Get free key ↗</a> · ${escapeHtml(api.limit)}</div>
+                <div class="runner-row">
+                    <input type="text" placeholder="e.g. 8.8.8.8" class="api-target" value="8.8.8.8">
+                    <button class="api-run-btn" data-service-id="${api.id}" ${connected ? "" : "disabled"}>▶ Run</button>
+                </div>
+                <div class="runner-output empty">${connected ? "Output will appear here after you run this lookup." : "Add your API key above first."}</div>
+            </div>
+        `;
+
+    });
+
+    html += `</div>`;
+
+    scroll.innerHTML = html;
+
+    wireLiveApiButtons(scroll);
+    wireKeyButtons(scroll);
+
+}
+
+function wireLiveApiButtons(scope) {
+
+    scope.querySelectorAll(".api-run-btn").forEach((btn) => {
+
+        btn.addEventListener("click", async () => {
+
+            const card = btn.closest(".runner-card");
+            const output = card.querySelector(".runner-output");
+            const serviceId = btn.getAttribute("data-service-id");
+            const targetInput = card.querySelector(".api-target");
+            const target = targetInput ? targetInput.value.trim() : "";
+
+            if (!target) {
+                output.classList.remove("empty");
+                output.classList.add("err");
+                output.textContent = "Enter a target first.";
+                return;
+            }
+
+            output.classList.remove("empty", "err");
+            output.textContent = "Querying...";
+
+            btn.disabled = true;
+
+            try {
+
+                const result = await callLiveApi(serviceId, { target });
+                output.textContent = typeof result === "string" ? result : JSON.stringify(result, null, 2);
+                logActivity(`Queried ${serviceId} for ${target}`);
+
+            } catch (e) {
+
+                output.classList.add("err");
+                output.textContent = "Error: " + e.message;
+
+            } finally {
+
+                btn.disabled = false;
+
+            }
+
+        });
+
+    });
+
+}
+
+async function callLiveApi(serviceId, params) {
+
+    if (window.prismAPI && typeof window.prismAPI.callApi === "function") {
+
+        const result = await window.prismAPI.callApi(serviceId, params);
+
+        if (!result.ok) throw new Error(result.error || "Request failed");
+
+        return result.data;
+
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    return `[PREVIEW MODE — no Electron backend attached]\n\nWould query service "${serviceId}" with target: ${params.target}\n\nLive execution requires running inside the PRISM desktop app.`;
+
+}
+
+function wireKeyButtons(scope) {
+
+    scope.querySelectorAll(".key-save-btn").forEach((btn) => {
+
+        btn.addEventListener("click", async () => {
+
+            const serviceId = btn.getAttribute("data-service-id");
+            const row = btn.closest(".key-row");
+            const input = row.querySelector(".key-input");
+            const value = input.value.trim();
+
+            if (!value || value === "••••••••••••••••") return;
+
+            if (window.prismAPI && typeof window.prismAPI.saveKey === "function") {
+
+                const result = await window.prismAPI.saveKey(serviceId, value);
+
+                if (result.ok) {
+                    await refreshKeyStatus();
+                    renderLiveApisContent();
+                }
+
+            } else {
+
+                alert("Saving API keys requires running inside the PRISM desktop app (Electron).");
+
+            }
+
+        });
+
+    });
+
+    scope.querySelectorAll(".key-clear-btn").forEach((btn) => {
+
+        btn.addEventListener("click", async () => {
+
+            const serviceId = btn.getAttribute("data-service-id");
+
+            if (window.prismAPI && typeof window.prismAPI.deleteKey === "function") {
+
+                await window.prismAPI.deleteKey(serviceId);
+                await refreshKeyStatus();
+                renderLiveApisContent();
+
+            }
+
+        });
+
+    });
+
+}
+
+/* ---------- init ---------- */
+
+/* ==========================================================================
+   GLOBAL CLICK SOUND
+   ========================================================================== */
+
+let clickAudioCtx = null;
+
+function playClickSound() {
+
+    try {
+
+        if (!clickAudioCtx) clickAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        if (clickAudioCtx.state === "suspended") clickAudioCtx.resume();
+
+        const now = clickAudioCtx.currentTime;
+        const osc = clickAudioCtx.createOscillator();
+        const gain = clickAudioCtx.createGain();
+
+        osc.type = "square";
+        osc.frequency.setValueAtTime(1100, now);
+        osc.frequency.exponentialRampToValueAtTime(550, now + 0.07);
+
+        gain.gain.setValueAtTime(0.07, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(clickAudioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.09);
+
+    } catch (e) { /* audio not available yet — ignore */ }
+
+}
+
+document.addEventListener("click", (e) => {
+
+    const clickable = e.target.closest(
+        "button, .node-row, .quiz-nav, .dash-launch-card, .tool-link, .user-menu-item, .user-area"
+    );
+
+    if (clickable) playClickSound();
+
+}, true);
+
+/* ==========================================================================
+   AUTH — user store bridge (Electron main process, or a clearly-labeled
+   localStorage fallback for browser preview only — real hashing/RBAC
+   enforcement always lives in main.js when running as the desktop app)
+   ========================================================================== */
+
+let currentUser = null;
+
+function lsGetUsers() {
+    try { return JSON.parse(localStorage.getItem("prism_users_preview") || "[]"); } catch (e) { return []; }
+}
+
+function lsSaveUsers(users) {
+    localStorage.setItem("prism_users_preview", JSON.stringify(users));
+}
+
+function lsHash(password, salt) {
+    // NOT cryptographically secure — preview-only convenience hash.
+    // The real app (main.js) always uses PBKDF2 with per-user salts.
+    let str = salt + password, hash = 0;
+    for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) | 0;
+    return String(hash);
+}
+
+async function backendHasUsers() {
+    if (window.prismAPI && window.prismAPI.hasUsers) return await window.prismAPI.hasUsers();
+    return lsGetUsers().length > 0;
+}
+
+async function backendCreateUser(data) {
+
+    if (window.prismAPI && window.prismAPI.createUser) return await window.prismAPI.createUser(data);
+
+    const users = lsGetUsers();
+
+    if (users.some((u) => u.username.toLowerCase() === data.username.toLowerCase())) {
+        return { ok: false, error: "That username is already taken." };
+    }
+
+    const salt = Math.random().toString(36).slice(2);
+    const role = users.length === 0 ? "admin" : (data.role || "viewer");
+
+    const user = { id: "u_" + Date.now(), username: data.username, role, photo: data.photo || null, salt, passwordHash: lsHash(data.password, salt), createdAt: new Date().toISOString() };
+
+    users.push(user);
+    lsSaveUsers(users);
+
+    const { passwordHash, salt: _s, ...pub } = user;
+    return { ok: true, user: pub };
+
+}
+
+async function backendLogin(data) {
+
+    if (window.prismAPI && window.prismAPI.login) return await window.prismAPI.login(data);
+
+    const users = lsGetUsers();
+    const user = users.find((u) => u.username.toLowerCase() === (data.username || "").toLowerCase());
+
+    if (!user) return { ok: false, error: "Invalid username or password." };
+
+    if (lsHash(data.password || "", user.salt) !== user.passwordHash) {
+        return { ok: false, error: "Invalid username or password." };
+    }
+
+    const { passwordHash, salt, ...pub } = user;
+    return { ok: true, user: pub };
+
+}
+
+async function backendGetUsers() {
+
+    if (window.prismAPI && window.prismAPI.getUsers) return await window.prismAPI.getUsers();
+
+    return lsGetUsers().map((u) => { const { passwordHash, salt, ...pub } = u; return pub; });
+
+}
+
+async function backendUpdateUser(payload) {
+
+    if (window.prismAPI && window.prismAPI.updateUser) return await window.prismAPI.updateUser(payload);
+
+    const users = lsGetUsers();
+    const requester = users.find((u) => u.id === payload.requestedBy);
+
+    if (!requester || requester.role !== "admin") return { ok: false, error: "Only admins can edit users." };
+
+    const target = users.find((u) => u.id === payload.id);
+    if (!target) return { ok: false, error: "User not found." };
+
+    if (payload.updates.role && payload.updates.role !== target.role) {
+
+        if (target.role === "admin" && users.filter((u) => u.role === "admin").length === 1) {
+            return { ok: false, error: "Can't demote the last remaining admin." };
+        }
+
+        target.role = payload.updates.role;
+
+    }
+
+    if (payload.updates.photo !== undefined) target.photo = payload.updates.photo;
+
+    lsSaveUsers(users);
+
+    const { passwordHash, salt, ...pub } = target;
+    return { ok: true, user: pub };
+
+}
+
+async function backendDeleteUser(payload) {
+
+    if (window.prismAPI && window.prismAPI.deleteUser) return await window.prismAPI.deleteUser(payload);
+
+    const users = lsGetUsers();
+    const requester = users.find((u) => u.id === payload.requestedBy);
+
+    if (!requester || requester.role !== "admin") return { ok: false, error: "Only admins can delete users." };
+
+    const target = users.find((u) => u.id === payload.id);
+    if (!target) return { ok: false, error: "User not found." };
+
+    if (target.role === "admin" && users.filter((u) => u.role === "admin").length === 1) {
+        return { ok: false, error: "Can't delete the last remaining admin." };
+    }
+
+    lsSaveUsers(users.filter((u) => u.id !== payload.id));
+    return { ok: true };
+
+}
+
+function fileToBase64(file) {
+
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+}
+
+async function checkAuth() {
+
+    const hasUsers = await backendHasUsers();
+
+    document.getElementById("auth-setup-mode").style.display = hasUsers ? "none" : "block";
+    document.getElementById("auth-login-mode").style.display = hasUsers ? "block" : "none";
+
+}
+
+async function submitSetup() {
+
+    const username = document.getElementById("setup-username").value.trim();
+    const password = document.getElementById("setup-password").value;
+    const photoFile = document.getElementById("setup-photo").files[0];
+    const errEl = document.getElementById("setup-error");
+
+    errEl.classList.remove("show");
+
+    if (!username || !password) {
+        errEl.textContent = "Username and password are required.";
+        errEl.classList.add("show");
+        return;
+    }
+
+    const photo = photoFile ? await fileToBase64(photoFile) : null;
+
+    const result = await backendCreateUser({ username, password, role: "admin", photo });
+
+    if (!result.ok) {
+        errEl.textContent = result.error;
+        errEl.classList.add("show");
+        return;
+    }
+
+    completeLogin(result.user);
+
+}
+
+async function submitLogin() {
+
+    const username = document.getElementById("login-username-field").value.trim();
+    const password = document.getElementById("login-password-field").value;
+    const errEl = document.getElementById("login-error-field");
+
+    errEl.classList.remove("show");
+
+    const result = await backendLogin({ username, password });
+
+    if (!result.ok) {
+        errEl.textContent = result.error;
+        errEl.classList.add("show");
+        return;
+    }
+
+    completeLogin(result.user);
+
+}
+
+function completeLogin(user) {
+
+    currentUser = user;
+
+    document.getElementById("auth-screen").style.display = "none";
+    document.getElementById("app-root").style.display = "flex";
+
+    renderUserBadge();
+    showDashboard();
+
+}
+
+function renderUserBadge() {
+
+    const avatarEl = document.getElementById("user-avatar-img");
+
+    avatarEl.innerHTML = currentUser.photo
+        ? `<img src="${currentUser.photo}">`
+        : escapeHtml(currentUser.username.slice(0, 2).toUpperCase());
+
+    document.getElementById("user-name-label").textContent = currentUser.username;
+    document.getElementById("user-role-label").textContent = currentUser.role;
+
+}
+
+function toggleUserMenu(e) {
+    e.stopPropagation();
+    document.getElementById("user-menu").classList.toggle("open");
+}
+
+document.addEventListener("click", () => {
+    const m = document.getElementById("user-menu");
+    if (m) m.classList.remove("open");
+});
+
+function logoutUser(e) {
+
+    e.stopPropagation();
+
+    stopStatsPolling();
+    currentUser = null;
+
+    document.getElementById("app-root").style.display = "none";
+    document.getElementById("auth-screen").style.display = "flex";
+    document.getElementById("login-username-field").value = "";
+    document.getElementById("login-password-field").value = "";
+
+    checkAuth();
+
+}
+
+/* ==========================================================================
+   USER MANAGEMENT TAB (admin-only)
+   ========================================================================== */
+
+function showUserManagementTab() {
+
+    activeNodeId = "user-mgmt";
+
+    stopStatsPolling();
+    updateQuizNavActive();
+    updateApiNavActive();
+    updateDashNavActive();
+    updateUmNavActive();
+
+    setBreadcrumb(`<b>👥 User Management</b>`);
+
+    renderUserManagementContent();
+
+    renderSidebar(document.getElementById("sidebar-search-input").value);
+
+}
+
+function updateUmNavActive() {
+    const btn = document.getElementById("um-nav-btn");
+    if (btn) btn.classList.toggle("active", activeNodeId === "user-mgmt");
+}
+
+async function renderUserManagementContent() {
+
+    const scroll = document.getElementById("content-scroll");
+
+    if (!currentUser || currentUser.role !== "admin") {
+        scroll.innerHTML = `<div class="um-restricted">🔒 User Management is restricted to admin accounts.<br>Signed in as <b>${escapeHtml(currentUser ? currentUser.username : "")}</b> (${escapeHtml(currentUser ? currentUser.role : "")}).</div>`;
+        return;
+    }
+
+    const users = await backendGetUsers();
+
+    let html = `<div class="group-guidance">Create accounts and assign roles. <b>Admin</b> — full access incl. user management. <b>Analyst</b> — can run diagnostics/API lookups. <b>Viewer</b> — reference tabs only.</div>`;
+    html += `<div class="admin-actions" style="margin-bottom:16px;"><button onclick="openCreateUserForm()">+ Add User</button></div>`;
+    html += `<div id="create-user-form-wrap"></div>`;
+    html += `<table class="um-table"><thead><tr><th>User</th><th>Role</th><th>Created</th><th></th></tr></thead><tbody>`;
+
+    users.forEach((u) => {
+
+        html += `<tr>
+            <td><span class="um-row-avatar">${u.photo ? `<img src="${u.photo}">` : escapeHtml(u.username.slice(0, 2).toUpperCase())}</span>${escapeHtml(u.username)}</td>
+            <td><span class="role-badge ${u.role}">${escapeHtml(u.role)}</span></td>
+            <td style="color:var(--text-dim);font-size:12px;">${new Date(u.createdAt).toLocaleDateString()}</td>
+            <td>
+                <select class="role-select" data-id="${u.id}" style="background:rgba(0,0,0,0.4);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;margin-right:6px;">
+                    <option value="admin" ${u.role === "admin" ? "selected" : ""}>admin</option>
+                    <option value="analyst" ${u.role === "analyst" ? "selected" : ""}>analyst</option>
+                    <option value="viewer" ${u.role === "viewer" ? "selected" : ""}>viewer</option>
+                </select>
+                <button class="btn-secondary" onclick="deleteUserRow('${u.id}')" style="padding:5px 10px;font-size:11px;">Delete</button>
+            </td>
+        </tr>`;
+
+    });
+
+    html += `</tbody></table>`;
+
+    scroll.innerHTML = html;
+
+    scroll.querySelectorAll(".role-select").forEach((sel) => {
+
+        sel.addEventListener("change", async () => {
+
+            const id = sel.getAttribute("data-id");
+            const result = await backendUpdateUser({ id, updates: { role: sel.value }, requestedBy: currentUser.id });
+
+            if (!result.ok) alert(result.error);
+
+            renderUserManagementContent();
+
+        });
+
+    });
+
+}
+
+async function deleteUserRow(id) {
+
+    if (!confirm("Delete this user?")) return;
+
+    const result = await backendDeleteUser({ id, requestedBy: currentUser.id });
+
+    if (!result.ok) { alert(result.error); return; }
+
+    renderUserManagementContent();
+
+}
+
+function openCreateUserForm() {
+
+    document.getElementById("create-user-form-wrap").innerHTML = `
+        <div class="settings-panel" style="margin-bottom:16px;">
+            <div class="login-field"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Username</label>
+                <input type="text" id="new-user-username" style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;"></div>
+            <div class="login-field" style="margin-top:10px;"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Password</label>
+                <input type="password" id="new-user-password" style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;"></div>
+            <div class="login-field" style="margin-top:10px;"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Role</label>
+                <select id="new-user-role" style="width:100%;padding:8px 11px;background:rgba(0,0,0,0.4);border:1px solid var(--border);border-radius:7px;color:var(--text);font-size:13px;">
+                    <option value="viewer">viewer</option>
+                    <option value="analyst">analyst</option>
+                    <option value="admin">admin</option>
+                </select>
+            </div>
+            <div class="login-field" style="margin-top:10px;"><label style="font-size:11px;color:var(--text-dim);display:block;margin-bottom:5px;">Photo (optional)</label>
+                <input type="file" id="new-user-photo" accept="image/*"></div>
+            <div class="admin-actions" style="margin-top:14px;">
+                <button onclick="submitCreateUser()">Create User</button>
+                <button class="btn-secondary" onclick="document.getElementById('create-user-form-wrap').innerHTML=''">Cancel</button>
+            </div>
+            <div class="login-error" id="new-user-error"></div>
+        </div>
+    `;
+
+}
+
+async function submitCreateUser() {
+
+    const username = document.getElementById("new-user-username").value.trim();
+    const password = document.getElementById("new-user-password").value;
+    const role = document.getElementById("new-user-role").value;
+    const photoFile = document.getElementById("new-user-photo").files[0];
+    const errEl = document.getElementById("new-user-error");
+
+    errEl.classList.remove("show");
+
+    if (!username || !password) {
+        errEl.textContent = "Username and password are required.";
+        errEl.classList.add("show");
+        return;
+    }
+
+    const photo = photoFile ? await fileToBase64(photoFile) : null;
+
+    const result = await backendCreateUser({ username, password, role, photo });
+
+    if (!result.ok) {
+        errEl.textContent = result.error;
+        errEl.classList.add("show");
+        return;
+    }
+
+    document.getElementById("create-user-form-wrap").innerHTML = "";
+
+    renderUserManagementContent();
+
+}
+
+/* ==========================================================================
+   LIVE SYSTEM STAT CHARTS (dashboard)
+   ========================================================================== */
+
+let statsPollInterval = null;
+let statsHistory = { cpu: [], mem: [], net: [] };
+const STATS_HISTORY_LEN = 30;
+
+function startStatsPolling() {
+    stopStatsPolling();
+    pollStatsOnce();
+    statsPollInterval = setInterval(pollStatsOnce, 2000);
+}
+
+function stopStatsPolling() {
+    if (statsPollInterval) { clearInterval(statsPollInterval); statsPollInterval = null; }
+}
+
+async function pollStatsOnce() {
+
+    let stats, isPreview = false;
+
+    if (window.prismAPI && typeof window.prismAPI.getSystemStats === "function") {
+
+        const result = await window.prismAPI.getSystemStats();
+
+        if (result.ok) { stats = result; } else { isPreview = true; stats = fakeStats(); }
+
+    } else {
+
+        isPreview = true;
+        stats = fakeStats();
+
+    }
+
+    statsHistory.cpu.push(stats.cpuPercent); if (statsHistory.cpu.length > STATS_HISTORY_LEN) statsHistory.cpu.shift();
+    statsHistory.mem.push(stats.memPercent); if (statsHistory.mem.length > STATS_HISTORY_LEN) statsHistory.mem.shift();
+
+    const netTotal = (stats.netRxKbps || 0) + (stats.netTxKbps || 0);
+    statsHistory.net.push(netTotal); if (statsHistory.net.length > STATS_HISTORY_LEN) statsHistory.net.shift();
+
+    updateStatCard("cpu", stats.cpuPercent + "%", statsHistory.cpu, 100);
+    updateStatCard("mem", `${stats.memPercent}% (${stats.memUsedGB}/${stats.memTotalGB} GB)`, statsHistory.mem, 100);
+    updateStatCard("net", netTotal + " KB/s", statsHistory.net, Math.max(...statsHistory.net, 100));
+
+    const badge = document.getElementById("stat-badge-global");
+    if (badge) badge.style.display = isPreview ? "inline-block" : "none";
+
+}
+
+function fakeStats() {
+
+    const last = statsHistory.cpu.length ? statsHistory.cpu[statsHistory.cpu.length - 1] : 30;
+    const cpuPercent = Math.max(2, Math.min(95, last + (Math.random() * 16 - 8)));
+    const memPercent = 45 + Math.round(Math.random() * 10);
+
+    return { cpuPercent: Math.round(cpuPercent), memPercent, memUsedGB: "—", memTotalGB: "—", netRxKbps: Math.round(Math.random() * 400), netTxKbps: Math.round(Math.random() * 150) };
+
+}
+
+function updateStatCard(key, valueText, history, maxVal) {
+
+    const valEl = document.getElementById("stat-value-" + key);
+    const canvas = document.getElementById("stat-canvas-" + key);
+
+    if (!valEl || !canvas) return;
+
+    valEl.textContent = valueText;
+
+    drawSparkline(canvas, history, maxVal);
+
+}
+
+function drawSparkline(canvas, data, maxVal) {
+
+    const ctx = canvas.getContext("2d");
+    const w = canvas.width = canvas.clientWidth * 2;
+    const h = canvas.height = canvas.clientHeight * 2;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (data.length < 2) return;
+
+    ctx.strokeStyle = "#38bdf8";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+
+    data.forEach((v, i) => {
+        const x = (i / (data.length - 1)) * w;
+        const y = h - (Math.min(v, maxVal) / maxVal) * h * 0.9 - h * 0.05;
+        if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    });
+
+    ctx.stroke();
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, "rgba(56,189,248,0.35)");
+    grad.addColorStop(1, "rgba(56,189,248,0)");
+
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+}
+
+/* ---------- app init ---------- */
+
+renderSidebar("");
+refreshKeyStatus();
+checkAuth();
+</script>
+</body>
+</html>

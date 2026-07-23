@@ -1,0 +1,22 @@
+Copyright (c) 2026 PRISM
+
+All Rights Reserved.
+
+This source code and all associated files (the "Software") are the
+original work of the copyright holder named above.
+
+No permission is granted to any person to copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, in whole or
+in part, without prior written permission from the copyright holder.
+
+The Software may be viewed publicly (e.g. on GitHub) for portfolio,
+educational, and demonstration purposes, but this does not grant any
+license to reuse, redistribute, or build derivative works from it.
+
+---
+
+Note: This project uses Electron (MIT License) and other open-source
+npm packages as runtime dependencies. Those packages are not covered by
+this copyright notice — see their respective licenses in node_modules
+after running `npm install`. Only the original application code, design,
+and content authored for this project are covered above.

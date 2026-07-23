@@ -1,0 +1,2902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Security: blocks all outbound network requests and restricts what the
+         page is allowed to load/run. Even if malicious content ever ended up
+         in the DOM, this stops it from phoning home or loading remote code. -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline';
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data:;
+        connect-src 'none';
+        object-src 'none';
+        base-uri 'none';
+        form-action 'none';
+        frame-ancestors 'none';
+    ">
+
+    <title>The CyberSecurity Guy - Quiz</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        @font-face {
+            font-family: 'monofallback';
+            src: local('Consolas');
+        }
+
+        html, body {
+            height: 100%;
+        }
+
+        body {
+            font-family: 'Courier New', Consolas, monospace;
+            background: #000000;
+            color: #d1fae5;
+            min-height: 100vh;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* MATRIX CANVAS BACKGROUND */
+
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.55;
+        }
+
+        /* scanline / crt overlay */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0,0,0,0.15) 0px,
+                rgba(0,0,0,0.15) 1px,
+                transparent 2px,
+                transparent 3px
+            );
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* vignette */
+        body::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.75) 100%);
+            pointer-events: none;
+            z-index: 6;
+        }
+
+        /* TOP BRANDING */
+
+        .top-bar {
+            position: relative;
+            z-index: 10;
+            max-width: 950px;
+            margin: 0 auto 25px auto;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 20px;
+            background: rgba(6, 20, 15, 0.45);
+            backdrop-filter: blur(14px) saturate(140%);
+            -webkit-backdrop-filter: blur(14px) saturate(140%);
+            border-radius: 14px;
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.15), inset 0 0 20px rgba(34, 197, 94, 0.05);
+        }
+
+        .youtube-logo {
+            width: 55px;
+            height: 38px;
+            background: #ff0000;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            flex-shrink: 0;
+        }
+
+        .youtube-logo::after {
+            content: "";
+            width: 0;
+            height: 0;
+            border-top: 9px solid transparent;
+            border-bottom: 9px solid transparent;
+            border-left: 15px solid white;
+            margin-left: 4px;
+        }
+
+        .channel-name {
+            font-size: 24px;
+            font-weight: bold;
+            letter-spacing: 1px;
+            color: #4ade80;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.6);
+        }
+
+        .channel-name span {
+            color: #22c55e;
+            text-shadow: 0 0 12px rgba(34, 197, 94, 0.9), 0 0 24px rgba(34, 197, 94, 0.5);
+        }
+
+        .live-dot {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            letter-spacing: 2px;
+            color: #4ade80;
+            padding: 6px 12px;
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            border-radius: 20px;
+        }
+
+        .live-dot .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e;
+            animation: pulse-dot 1.2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.8); }
+        }
+
+        /* QUIZ CONTAINER */
+
+        .quiz-container {
+            position: relative;
+            z-index: 10;
+            max-width: 950px;
+            margin: auto;
+            background: rgba(6, 20, 15, 0.4);
+            backdrop-filter: blur(18px) saturate(150%);
+            -webkit-backdrop-filter: blur(18px) saturate(150%);
+            border-radius: 18px;
+            padding: 30px;
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6), 0 0 40px rgba(34, 197, 94, 0.08), inset 0 0 40px rgba(34, 197, 94, 0.03);
+        }
+
+        .quiz-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .quiz-header h1 {
+            font-size: 30px;
+            margin-bottom: 8px;
+            color: #d1fae5;
+            text-shadow: 0 0 15px rgba(74, 222, 128, 0.5);
+            letter-spacing: 1px;
+        }
+
+        .quiz-header p {
+            color: #6ee7b7;
+            opacity: 0.8;
+        }
+
+        /* PROGRESS */
+
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 8px;
+            color: #a7f3d0;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(51, 65, 55, 0.6);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+
+        .progress {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #16a34a, #4ade80);
+            box-shadow: 0 0 10px #22c55e;
+            transition: width 0.3s ease;
+        }
+
+        /* QUESTION */
+
+        .question {
+            font-size: 22px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+            color: #ecfdf5;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.25);
+        }
+
+        /* OPTIONS */
+
+        .options {
+            display: grid;
+            gap: 14px;
+        }
+
+        .option {
+            padding: 18px;
+            border-radius: 10px;
+            background: rgba(15, 30, 24, 0.55);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 2px solid rgba(74, 222, 128, 0.25);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 17px;
+            color: #d1fae5;
+        }
+
+        .option:hover {
+            border-color: #4ade80;
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px rgba(74, 222, 128, 0.35);
+            background: rgba(15, 30, 24, 0.75);
+        }
+
+        .option.correct {
+            background: rgba(20, 83, 45, 0.75);
+            border-color: #22c55e;
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.6);
+        }
+
+        .option.wrong {
+            background: rgba(127, 29, 29, 0.75);
+            border-color: #ef4444;
+            box-shadow: 0 0 25px rgba(239, 68, 68, 0.6);
+        }
+
+        .option.disabled {
+            cursor: not-allowed;
+        }
+
+        .option.disabled:hover {
+            transform: none;
+        }
+
+        /* FEEDBACK */
+
+        .feedback {
+            margin-top: 20px;
+            padding: 16px;
+            border-radius: 10px;
+            display: none;
+            line-height: 1.6;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .feedback.correct-feedback {
+            display: block;
+            background: rgba(20, 83, 45, 0.55);
+            color: #bbf7d0;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .feedback.wrong-feedback {
+            display: block;
+            background: rgba(127, 29, 29, 0.55);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        /* BUTTON */
+
+        .button-area {
+            margin-top: 25px;
+            text-align: right;
+        }
+
+        button {
+            border: none;
+            padding: 14px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #16a34a, #15803d);
+            color: #ecfdf5;
+            letter-spacing: 1px;
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+            transition: all 0.2s ease;
+            font-family: inherit;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.7);
+            transform: translateY(-1px);
+        }
+
+        /* RESULT */
+
+        .result {
+            text-align: center;
+            display: none;
+        }
+
+        .result h2 {
+            font-size: 34px;
+            margin-bottom: 20px;
+            color: #d1fae5;
+            text-shadow: 0 0 15px rgba(74, 222, 128, 0.6);
+        }
+
+        .score {
+            font-size: 60px;
+            color: #4ade80;
+            font-weight: bold;
+            margin: 20px 0;
+            text-shadow: 0 0 25px rgba(74, 222, 128, 0.7);
+        }
+
+        .result p {
+            color: #a7f3d0;
+            font-size: 18px;
+            margin-bottom: 25px;
+        }
+
+        /* MOBILE */
+
+        @media (max-width: 600px) {
+
+            body {
+                padding: 10px;
+            }
+
+            .top-bar {
+                padding: 12px;
+            }
+
+            .channel-name {
+                font-size: 16px;
+            }
+
+            .live-dot {
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+
+            .youtube-logo {
+                width: 45px;
+                height: 32px;
+            }
+
+            .quiz-container {
+                padding: 20px;
+            }
+
+            .quiz-header h1 {
+                font-size: 22px;
+            }
+
+            .question {
+                font-size: 18px;
+            }
+
+            .option {
+                font-size: 15px;
+            }
+
+            #timer-display {
+                font-size: 20px;
+            }
+
+            .progress-info {
+                gap: 8px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .live-dot .dot {
+                animation: none;
+            }
+        }
+
+        /* ADMIN BUTTON */
+
+        .admin-btn {
+            padding: 8px 16px;
+            font-size: 13px;
+            background: rgba(15, 30, 24, 0.7);
+            border: 1px solid rgba(74, 222, 128, 0.4);
+            box-shadow: none;
+            color: #a7f3d0;
+        }
+
+        .admin-btn:hover {
+            border-color: #4ade80;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.35);
+            background: rgba(15, 30, 24, 0.9);
+        }
+
+        /* START / LOBBY SCREEN */
+
+        .start-screen {
+            display: none;
+            text-align: center;
+            padding: 10px 0 20px 0;
+        }
+
+        .start-quiz-btn {
+            font-size: 18px;
+            padding: 16px 36px;
+            background: linear-gradient(135deg, #16a34a, #22c55e);
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.5);
+        }
+
+        .start-quiz-btn:hover {
+            background: linear-gradient(135deg, #22c55e, #4ade80);
+            box-shadow: 0 0 40px rgba(34, 197, 94, 0.8);
+        }
+
+        /* LOGIN SCREEN */
+
+        .login-screen {
+            display: none;
+        }
+
+        .login-box {
+            max-width: 380px;
+            margin: 20px auto;
+            padding: 30px;
+            background: rgba(6, 20, 15, 0.5);
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            border-radius: 14px;
+            box-shadow: 0 0 30px rgba(34, 197, 94, 0.15);
+            text-align: center;
+        }
+
+        .login-box h2 {
+            margin-bottom: 8px;
+            color: #d1fae5;
+            text-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+        }
+
+        .login-box .subtitle {
+            color: #6ee7b7;
+            opacity: 0.75;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .login-field {
+            text-align: left;
+            margin-bottom: 16px;
+        }
+
+        .login-field label {
+            display: block;
+            font-size: 11px;
+            letter-spacing: 1px;
+            color: #6ee7b7;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .login-field input {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 8px;
+            color: #d1fae5;
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+        }
+
+        .login-field input:focus {
+            border-color: #4ade80;
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
+        }
+
+        .login-field select {
+            width: 100%;
+            padding: 12px 14px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 8px;
+            color: #d1fae5;
+            font-family: inherit;
+            font-size: 15px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .login-field select:focus {
+            border-color: #4ade80;
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.4);
+        }
+
+        .admin-color-input {
+            width: 100%;
+            height: 44px;
+            padding: 4px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .swatch-btn {
+            position: relative;
+            padding-left: 30px !important;
+        }
+
+        .swatch-btn::before {
+            content: "";
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--swatch, #22c55e);
+            box-shadow: 0 0 8px var(--swatch, #22c55e);
+        }
+
+        .login-error {
+            color: #fca5a5;
+            font-size: 13px;
+            margin-top: -6px;
+            margin-bottom: 14px;
+            display: none;
+        }
+
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-8px); }
+            40% { transform: translateX(8px); }
+            60% { transform: translateX(-6px); }
+            80% { transform: translateX(6px); }
+        }
+
+        .full-width {
+            width: 100%;
+        }
+
+        /* ADMIN PANEL */
+
+        .admin-screen {
+            display: none;
+        }
+
+        .admin-section {
+            margin-bottom: 26px;
+            padding-bottom: 22px;
+            border-bottom: 1px dashed rgba(74, 222, 128, 0.2);
+        }
+
+        .admin-section:last-child {
+            border-bottom: none;
+        }
+
+        .admin-section h3 {
+            color: #d1fae5;
+            margin-bottom: 10px;
+            font-size: 17px;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
+        }
+
+        .admin-section .hint {
+            color: #94e8bb;
+            font-size: 13px;
+            opacity: 0.85;
+            margin-bottom: 12px;
+            line-height: 1.5;
+        }
+
+        .admin-textarea, .ai-prompt-box {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(74, 222, 128, 0.3);
+            border-radius: 8px;
+            color: #a7f3d0;
+            padding: 12px;
+            font-family: inherit;
+            font-size: 13px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .admin-actions button {
+            font-size: 14px;
+            padding: 10px 18px;
+        }
+
+        .btn-secondary {
+            background: rgba(15, 30, 24, 0.7) !important;
+            border: 1px solid rgba(74, 222, 128, 0.35);
+            box-shadow: none !important;
+            color: #a7f3d0 !important;
+        }
+
+        .btn-secondary:hover {
+            border-color: #4ade80;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.3) !important;
+            background: rgba(15, 30, 24, 0.9) !important;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #7f1d1d, #991b1b) !important;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #991b1b, #b91c1c) !important;
+        }
+
+        .admin-status {
+            margin-top: 4px;
+            margin-bottom: 20px;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .admin-status.success {
+            display: block;
+            background: rgba(20, 83, 45, 0.5);
+            color: #bbf7d0;
+            border: 1px solid rgba(34, 197, 94, 0.4);
+        }
+
+        .admin-status.error {
+            display: block;
+            background: rgba(127, 29, 29, 0.5);
+            color: #fecaca;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .admin-question-list {
+            max-height: 220px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(74, 222, 128, 0.2);
+            border-radius: 8px;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        .admin-q-item {
+            padding: 6px 4px;
+            font-size: 13px;
+            color: #c8f7dc;
+            border-bottom: 1px solid rgba(74, 222, 128, 0.08);
+        }
+
+        .admin-q-item:last-child {
+            border-bottom: none;
+        }
+
+        .file-drop {
+            display: block;
+            border: 2px dashed rgba(74, 222, 128, 0.35);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #94e8bb;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .file-drop:hover {
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.05);
+        }
+
+        /* BOOT SEQUENCE OVERLAY */
+
+        .boot-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.88);
+        }
+
+        .boot-box {
+            width: 90%;
+            max-width: 480px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .boot-lines {
+            min-height: 150px;
+            margin-bottom: 20px;
+        }
+
+        .boot-line {
+            color: #4ade80;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+            opacity: 0;
+            animation: bootFadeIn 0.3s forwards;
+            letter-spacing: 0.5px;
+        }
+
+        @keyframes bootFadeIn {
+            to { opacity: 1; }
+        }
+
+        .boot-progress-track {
+            height: 6px;
+            background: rgba(51, 65, 55, 0.6);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(74, 222, 128, 0.2);
+        }
+
+        .boot-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #16a34a, #4ade80);
+            box-shadow: 0 0 12px #22c55e;
+            transition: width 0.4s ease;
+        }
+
+        .boot-caption {
+            text-align: center;
+            color: #6ee7b7;
+            font-size: 12px;
+            margin-top: 14px;
+            letter-spacing: 3px;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 600px) {
+            .login-box {
+                padding: 20px;
+                margin: 10px auto;
+            }
+
+            .admin-actions {
+                flex-direction: column;
+            }
+
+            .admin-actions button {
+                width: 100%;
+            }
+        }
+
+        #timer-display {
+            font-weight: bold;
+            font-size: 28px;
+            color: #4ade80;
+            text-shadow: 0 0 8px rgba(74, 222, 128, 0.5);
+            transition: color 0.3s ease;
+        }
+
+        #timer-display.timer-warning {
+            color: #f87171;
+            text-shadow: 0 0 10px rgba(248, 113, 113, 0.7);
+            animation: timerPulse 0.6s infinite;
+        }
+
+        @keyframes timerPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.55; }
+        }
+
+        .start-count-line {
+            text-align: center;
+            color: #6ee7b7;
+            opacity: 0.75;
+            font-size: 13px;
+            margin-top: -12px;
+            margin-bottom: 14px;
+        }
+
+        /* CUSTOM CURSOR */
+
+        html, body {
+            cursor: none;
+        }
+
+        #cursor-dot, #cursor-ring {
+            position: fixed;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 9999;
+        }
+
+        #cursor-dot {
+            width: 6px;
+            height: 6px;
+            background: #4ade80;
+            box-shadow: 0 0 8px #4ade80, 0 0 16px rgba(74, 222, 128, 0.6);
+        }
+
+        #cursor-ring {
+            width: 30px;
+            height: 30px;
+            border: 1.5px solid rgba(74, 222, 128, 0.55);
+            box-shadow: 0 0 12px rgba(74, 222, 128, 0.3);
+            transition: width 0.15s ease, height 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+        }
+
+        #cursor-ring.cursor-hover {
+            width: 46px;
+            height: 46px;
+            border-color: #4ade80;
+            background: rgba(74, 222, 128, 0.12);
+        }
+
+        @media (pointer: coarse) {
+
+            html, body {
+                cursor: auto;
+            }
+
+            #cursor-dot, #cursor-ring {
+                display: none;
+            }
+
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <canvas id="matrix-canvas"></canvas>
+
+    <div id="cursor-dot"></div>
+    <div id="cursor-ring"></div>
+
+    <!-- CHANNEL BRANDING -->
+
+    <div class="top-bar" id="main-topbar" style="display:none;">
+
+        <div class="youtube-logo"></div>
+
+        <div class="channel-name">
+            The <span>CyberSecurity</span> Guy
+        </div>
+
+        <div class="live-dot" id="live-badge" style="display:none;">
+            <span class="dot"></span> LIVE
+        </div>
+
+        <button class="admin-btn" id="admin-toggle-btn" onclick="openAdmin()">⚙️ Admin</button>
+
+        <button class="admin-btn" onclick="logout()">🚪 Logout</button>
+
+    </div>
+
+
+    <!-- QUIZ -->
+
+    <div class="quiz-container">
+
+        <div id="quiz-screen">
+
+            <div class="quiz-header">
+
+                <h1 id="page-title-quiz">🔐 Cybersecurity MCQ Quiz</h1>
+
+                <p id="page-subtitle-quiz">Test your cybersecurity knowledge</p>
+
+            </div>
+
+
+            <div class="progress-info">
+
+                <span id="question-number">
+                    Question 1 of 10
+                </span>
+
+                <span id="timer-display">
+                    ⏱ 30s
+                </span>
+
+                <span id="score-display">
+                    Score: 0
+                </span>
+
+            </div>
+
+
+            <div class="progress-bar">
+
+                <div class="progress" id="progress"></div>
+
+            </div>
+
+
+            <div class="question" id="question">
+
+                Question
+
+            </div>
+
+
+            <div class="options" id="options"></div>
+
+
+            <div class="feedback" id="feedback"></div>
+
+
+            <div class="button-area">
+
+                <button
+                    id="next-btn"
+                    onclick="nextQuestion()"
+                    style="display:none;">
+
+                    Next Question →
+
+                </button>
+
+            </div>
+
+        </div>
+
+
+        <!-- RESULT -->
+
+        <div class="result" id="result-screen">
+
+            <h2>🎉 Quiz Completed!</h2>
+
+            <div class="score" id="final-score">
+                0 / 10
+            </div>
+
+            <p id="result-message"></p>
+
+            <button onclick="restartQuiz()">
+
+                🔄 Restart Quiz
+
+            </button>
+
+        </div>
+
+
+        <!-- LOGIN SCREEN -->
+
+        <div class="login-screen" id="login-screen">
+
+            <div class="login-box">
+
+                <h2>🔒 Admin Access</h2>
+                <p class="subtitle">Authorized personnel only</p>
+
+                <form id="login-form" onsubmit="attemptLogin(event)">
+
+                    <div class="login-field">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" autocomplete="off" placeholder="Enter username" />
+                    </div>
+
+                    <div class="login-field">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" autocomplete="off" placeholder="Enter password" />
+                    </div>
+
+                    <div class="login-error" id="login-error">⛔ Access denied — invalid credentials</div>
+
+                    <button type="submit" class="full-width">Login →</button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+
+        <!-- START / LOBBY SCREEN -->
+
+        <div class="start-screen" id="start-screen">
+
+            <div class="quiz-header">
+                <h1 id="page-title-start">🔐 Cybersecurity MCQ Quiz</h1>
+                <p id="page-subtitle-start">Test your cybersecurity knowledge</p>
+            </div>
+
+            <p class="start-count-line"><span id="start-question-count">5</span> questions loaded and ready</p>
+
+            <div style="text-align:center; margin-top: 10px;">
+                <button class="start-quiz-btn" onclick="startQuiz()">▶ Start Quiz — Go Live</button>
+            </div>
+
+            <div style="text-align:center; margin-top: 16px;">
+                <button class="btn-secondary" onclick="openAdmin()">⚙️ Manage Questions</button>
+            </div>
+
+        </div>
+
+
+        <!-- ADMIN PANEL -->
+
+        <div class="admin-screen" id="admin-screen">
+
+            <div class="quiz-header">
+                <h1>⚙️ Admin Panel</h1>
+                <p>Load new question sets for your live quiz</p>
+            </div>
+
+            <div class="admin-section">
+                <h3>① Generate questions with AI</h3>
+                <p class="hint">Copy this prompt into ChatGPT, Claude, or any AI tool. Swap out the topic to get a new domain of cybersecurity questions in a format this page understands.</p>
+                <textarea class="ai-prompt-box" id="ai-prompt-text" readonly rows="7">Create 10 multiple-choice cybersecurity quiz questions about [YOUR TOPIC HERE, e.g. Cloud Security].
+
+Return ONLY plain CSV text — no markdown, no code fences, no extra commentary — starting with this exact header row:
+Question,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Explanation
+
+Rules:
+- One question per row, exactly 4 options each.
+- CorrectAnswer must be a single letter: A, B, C, or D.
+- If any text contains a comma, wrap that field in double quotes.
+- Explanation should be 1-2 sentences.
+- Do not number the questions.</textarea>
+                <div class="admin-actions">
+                    <button class="btn-secondary" onclick="copyAIPrompt()">📋 Copy AI Prompt</button>
+                    <button class="btn-secondary" onclick="downloadSampleTemplate()">⬇️ Download Sample CSV</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h3>② Paste your questions</h3>
+                <p class="hint">Paste the CSV (or JSON) text your AI tool gave you, then click Load.</p>
+                <textarea class="admin-textarea" id="admin-textarea" rows="6" placeholder="Paste CSV or JSON here..."></textarea>
+                <div class="admin-actions">
+                    <button onclick="loadFromText()">⚡ Load Questions</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h3>④ Customize headline text</h3>
+                <p class="hint">Edit the title and subtitle shown on the lobby and quiz screens.</p>
+
+                <div class="login-field">
+                    <label for="admin-title-input">Quiz Title</label>
+                    <input type="text" id="admin-title-input" placeholder="🔐 Cybersecurity MCQ Quiz" />
+                </div>
+
+                <div class="login-field">
+                    <label for="admin-subtitle-input">Quiz Subtitle</label>
+                    <input type="text" id="admin-subtitle-input" placeholder="Test your cybersecurity knowledge" />
+                </div>
+
+                <div class="admin-actions">
+                    <button class="btn-secondary" onclick="saveHeadlineText()">💾 Save Headline Text</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h3>⑤ Background animation</h3>
+                <p class="hint">Choose the falling background style, its color, and how fast it moves.</p>
+
+                <div class="login-field">
+                    <label for="admin-bg-style">Animation Style</label>
+                    <select id="admin-bg-style">
+                        <option value="matrix">Matrix Rain (katakana)</option>
+                        <option value="binary">Binary (0 &amp; 1)</option>
+                        <option value="code">Code Rain (symbols)</option>
+                    </select>
+                </div>
+
+                <div class="login-field">
+                    <label for="admin-bg-speed">Speed</label>
+                    <select id="admin-bg-speed">
+                        <option value="slow">Slow</option>
+                        <option value="medium">Medium</option>
+                        <option value="fast">Fast</option>
+                    </select>
+                </div>
+
+                <div class="login-field">
+                    <label for="admin-bg-color">Color</label>
+                    <input type="color" id="admin-bg-color" value="#22c55e" class="admin-color-input" />
+                </div>
+
+                <div class="admin-actions" style="margin-bottom: 12px;">
+                    <button class="btn-secondary swatch-btn" style="--swatch:#22c55e;" onclick="pickBgColor('#22c55e')">Green</button>
+                    <button class="btn-secondary swatch-btn" style="--swatch:#38bdf8;" onclick="pickBgColor('#38bdf8')">Blue</button>
+                    <button class="btn-secondary swatch-btn" style="--swatch:#f87171;" onclick="pickBgColor('#f87171')">Red</button>
+                    <button class="btn-secondary swatch-btn" style="--swatch:#c084fc;" onclick="pickBgColor('#c084fc')">Purple</button>
+                    <button class="btn-secondary swatch-btn" style="--swatch:#fbbf24;" onclick="pickBgColor('#fbbf24')">Amber</button>
+                    <button class="btn-secondary swatch-btn" style="--swatch:#22d3ee;" onclick="pickBgColor('#22d3ee')">Cyan</button>
+                </div>
+
+                <div class="admin-actions">
+                    <button onclick="saveBackgroundSettings()">🎨 Apply Background</button>
+                </div>
+            </div>
+
+            <div class="admin-section">
+                <h3>③ Or upload a file</h3>
+                <label class="file-drop" for="admin-file-input">
+                    📁 Click to choose a .csv or .json file
+                </label>
+                <input type="file" id="admin-file-input" accept=".csv,.json,text/csv,application/json" style="display:none;" onchange="loadFromFile(event)" />
+            </div>
+
+            <div class="admin-status" id="admin-status"></div>
+
+            <div class="admin-section">
+                <h3>Currently loaded: <span id="admin-count">0</span> questions</h3>
+                <div class="admin-question-list" id="admin-question-list"></div>
+            </div>
+
+            <div class="admin-actions">
+                <button class="btn-secondary" onclick="backToLobbyFromAdmin()">← Back</button>
+                <button class="btn-danger" onclick="resetToDefault()">🔄 Reset to Default Questions</button>
+                <button class="btn-danger" onclick="logout()">🚪 Logout</button>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- BOOT SEQUENCE OVERLAY -->
+
+    <div class="boot-overlay" id="boot-overlay">
+
+        <div class="boot-box">
+
+            <div class="boot-lines" id="boot-lines"></div>
+
+            <div class="boot-progress-track">
+                <div class="boot-progress-fill" id="boot-progress"></div>
+            </div>
+
+            <div class="boot-caption">AUTHENTICATING</div>
+
+        </div>
+
+    </div>
+
+
+<script>
+
+
+/* ==============================================================
+   QUESTIONS DATA STRUCTURE — DO NOT CHANGE THE SHAPE OF THIS ARRAY.
+   Every question object must always look exactly like this:
+   {
+       question: "text",
+       options: ["opt1", "opt2", "opt3", "opt4"],
+       answer: <index of correct option, 0-3>,
+       explanation: "text"
+   }
+   When asking Claude or ChatGPT to add new questions for a new
+   cybersecurity domain, tell it: "keep the questions array in this
+   exact structure" and paste this comment block along with it.
+   ============================================================== */
+
+const DEFAULT_QUESTIONS = [
+
+    {
+        question: "What does the CIA Triad stand for?",
+
+        options: [
+
+            "Confidentiality, Integrity, Availability",
+
+            "Control, Information, Authentication",
+
+            "Cybersecurity, Intelligence, Access",
+
+            "Confidentiality, Internet, Authorization"
+
+        ],
+
+        answer: 0,
+
+        explanation:
+        "The CIA Triad consists of Confidentiality, Integrity, and Availability."
+    },
+
+
+    {
+        question: "Which port is commonly used by HTTPS?",
+
+        options: [
+
+            "21",
+
+            "22",
+
+            "80",
+
+            "443"
+
+        ],
+
+        answer: 3,
+
+        explanation:
+        "HTTPS commonly uses TCP port 443."
+    },
+
+
+    {
+        question: "What is phishing?",
+
+        options: [
+
+            "A network scanning technique",
+
+            "A social engineering attack",
+
+            "A type of encryption",
+
+            "A firewall technology"
+
+        ],
+
+        answer: 1,
+
+        explanation:
+        "Phishing is a social engineering attack used to trick users into revealing sensitive information."
+    },
+
+
+    {
+        question: "Which protocol is used for secure remote access?",
+
+        options: [
+
+            "FTP",
+
+            "Telnet",
+
+            "SSH",
+
+            "HTTP"
+
+        ],
+
+        answer: 2,
+
+        explanation:
+        "SSH provides encrypted remote access to systems."
+    },
+
+
+    {
+        question: "What is the main purpose of a firewall?",
+
+        options: [
+
+            "Store passwords",
+
+            "Filter network traffic",
+
+            "Create backups",
+
+            "Compress files"
+
+        ],
+
+        answer: 1,
+
+        explanation:
+        "A firewall filters and controls network traffic according to security rules."
+    }
+
+];
+
+
+/* Load any previously-saved custom question set, otherwise use defaults */
+
+let questions = DEFAULT_QUESTIONS;
+
+try {
+
+    const savedQuestions = localStorage.getItem("csguy_questions");
+
+    if (savedQuestions) {
+
+        const parsed = JSON.parse(savedQuestions);
+
+        if (Array.isArray(parsed) && parsed.length > 0) {
+
+            questions = parsed;
+
+        }
+
+    }
+
+} catch (e) {
+
+    questions = DEFAULT_QUESTIONS;
+
+}
+
+
+let isLoggedIn = false;
+
+let quizIsLive = false;
+
+const QUESTION_TIME_SECONDS = 30;
+
+let timerInterval = null;
+
+let timeLeft = QUESTION_TIME_SECONDS;
+
+let currentQuestion = 0;
+
+let score = 0;
+
+let answered = false;
+
+
+/* ELEMENTS */
+
+const questionElement =
+    document.getElementById("question");
+
+const optionsElement =
+    document.getElementById("options");
+
+const questionNumberElement =
+    document.getElementById("question-number");
+
+const scoreDisplayElement =
+    document.getElementById("score-display");
+
+const progressElement =
+    document.getElementById("progress");
+
+const feedbackElement =
+    document.getElementById("feedback");
+
+const nextButton =
+    document.getElementById("next-btn");
+
+
+/* MATRIX RAIN BACKGROUND (configurable) */
+
+const MATRIX_CHARS_KATAKANA =
+    "アイウエオカキクケコサシスセソタチツテト0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ$#@%&";
+
+const MATRIX_CHARS_BINARY = "01";
+
+const MATRIX_CHARS_CODE =
+    "{}()[]<>;:=+-*/%!&|^~.,01lnfxifelseforletconstvarreturnfunctiontruefalse";
+
+const matrixConfig = {
+
+    style: "matrix", // "matrix" | "binary" | "code"
+
+    color: "#22c55e",
+
+    speed: "medium" // "slow" | "medium" | "fast"
+
+};
+
+let matrixCanvasEl, matrixCtx, matrixWidth, matrixHeight, matrixDrops;
+
+let matrixIntervalId = null;
+
+const MATRIX_FONT_SIZE = 16;
+
+
+function loadMatrixConfig() {
+
+    try {
+
+        const savedStyle = localStorage.getItem("csguy_bg_style");
+
+        const savedSpeed = localStorage.getItem("csguy_bg_speed");
+
+        const savedColor = localStorage.getItem("csguy_bg_color");
+
+        if (savedStyle) matrixConfig.style = savedStyle;
+
+        if (savedSpeed) matrixConfig.speed = savedSpeed;
+
+        if (savedColor) matrixConfig.color = savedColor;
+
+    } catch (e) { /* storage unavailable */ }
+
+}
+
+
+function getMatrixChars() {
+
+    if (matrixConfig.style === "binary") return MATRIX_CHARS_BINARY;
+
+    if (matrixConfig.style === "code") return MATRIX_CHARS_CODE;
+
+    return MATRIX_CHARS_KATAKANA;
+
+}
+
+
+function getMatrixSpeedMs() {
+
+    if (matrixConfig.speed === "slow") return 90;
+
+    if (matrixConfig.speed === "fast") return 22;
+
+    return 45;
+
+}
+
+
+function hexToRgbParts(hex) {
+
+    let clean = hex.replace("#", "");
+
+    if (clean.length === 3) {
+
+        clean = clean.split("").map((c) => c + c).join("");
+
+    }
+
+    const bigint = parseInt(clean, 16) || 0x22c55e;
+
+    return {
+
+        r: (bigint >> 16) & 255,
+
+        g: (bigint >> 8) & 255,
+
+        b: bigint & 255
+
+    };
+
+}
+
+
+function resizeMatrixCanvas() {
+
+    matrixWidth = matrixCanvasEl.width = window.innerWidth;
+
+    matrixHeight = matrixCanvasEl.height = window.innerHeight;
+
+    const columns = Math.floor(matrixWidth / MATRIX_FONT_SIZE);
+
+    matrixDrops = new Array(columns).fill(1);
+
+}
+
+
+function drawMatrixFrame() {
+
+    const chars = getMatrixChars();
+
+    const { r, g, b } = hexToRgbParts(matrixConfig.color);
+
+    const leadR = Math.min(r + 90, 255);
+
+    const leadG = Math.min(g + 90, 255);
+
+    const leadB = Math.min(b + 90, 255);
+
+
+    matrixCtx.fillStyle = "rgba(0, 0, 0, 0.08)";
+
+    matrixCtx.fillRect(0, 0, matrixWidth, matrixHeight);
+
+    matrixCtx.font = MATRIX_FONT_SIZE + "px monospace";
+
+    for (let i = 0; i < matrixDrops.length; i++) {
+
+        const text = chars[Math.floor(Math.random() * chars.length)];
+
+        const y = matrixDrops[i] * MATRIX_FONT_SIZE;
+
+        // brighter leading character
+        matrixCtx.fillStyle = `rgba(${leadR}, ${leadG}, ${leadB}, 0.95)`;
+
+        matrixCtx.fillText(text, i * MATRIX_FONT_SIZE, y);
+
+        matrixCtx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.75)`;
+
+        matrixCtx.fillText(
+            chars[Math.floor(Math.random() * chars.length)],
+            i * MATRIX_FONT_SIZE,
+            y - MATRIX_FONT_SIZE
+        );
+
+        if (y > matrixHeight && Math.random() > 0.975) {
+
+            matrixDrops[i] = 0;
+
+        }
+
+        matrixDrops[i]++;
+
+    }
+
+}
+
+
+function startMatrixAnimation() {
+
+    if (matrixIntervalId) clearInterval(matrixIntervalId);
+
+    matrixIntervalId = setInterval(drawMatrixFrame, getMatrixSpeedMs());
+
+}
+
+
+function initMatrixRain() {
+
+    matrixCanvasEl = document.getElementById("matrix-canvas");
+
+    matrixCtx = matrixCanvasEl.getContext("2d");
+
+    window.addEventListener("resize", resizeMatrixCanvas);
+
+    resizeMatrixCanvas();
+
+    loadMatrixConfig();
+
+    startMatrixAnimation();
+
+}
+
+
+initMatrixRain();
+
+
+function saveBackgroundSettings() {
+
+    matrixConfig.style = document.getElementById("admin-bg-style").value;
+
+    matrixConfig.speed = document.getElementById("admin-bg-speed").value;
+
+    matrixConfig.color = document.getElementById("admin-bg-color").value;
+
+    try {
+
+        localStorage.setItem("csguy_bg_style", matrixConfig.style);
+
+        localStorage.setItem("csguy_bg_speed", matrixConfig.speed);
+
+        localStorage.setItem("csguy_bg_color", matrixConfig.color);
+
+    } catch (e) { /* storage unavailable */ }
+
+    startMatrixAnimation();
+
+    showAdminStatus("🎨 Background updated!", false);
+
+}
+
+
+function pickBgColor(hex) {
+
+    document.getElementById("admin-bg-color").value = hex;
+
+}
+
+
+/* SOUND SYSTEM (louder, punchier) */
+
+const audioContext =
+    new (window.AudioContext || window.webkitAudioContext)();
+
+
+function unlockAudio() {
+
+    if (audioContext.state === "suspended") {
+
+        audioContext.resume();
+
+    }
+
+}
+
+document.addEventListener("click", unlockAudio, { once: false });
+
+
+function playCorrectSound() {
+
+    unlockAudio();
+
+    const now = audioContext.currentTime;
+
+    // layered chord hit for a bigger, louder "success" feel
+    const freqs = [700, 1050, 1400];
+
+    freqs.forEach((freq, i) => {
+
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+
+        oscillator.type = "square";
+
+        oscillator.frequency.setValueAtTime(freq, now);
+        oscillator.frequency.exponentialRampToValueAtTime(freq * 1.5, now + 0.15);
+
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.6, now + 0.02 + i * 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + 0.6);
+
+    });
+
+}
+
+
+function playWrongSound() {
+
+    unlockAudio();
+
+    const now = audioContext.currentTime;
+
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+
+    oscillator.type = "sawtooth";
+
+    oscillator.frequency.setValueAtTime(300, now);
+    oscillator.frequency.exponentialRampToValueAtTime(70, now + 0.45);
+
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.65, now + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+
+    oscillator.start(now);
+    oscillator.stop(now + 0.65);
+
+    // extra low buzz layer for impact
+    const oscillator2 = audioContext.createOscillator();
+    const gain2 = audioContext.createGain();
+
+    oscillator2.type = "square";
+
+    oscillator2.frequency.setValueAtTime(120, now);
+    oscillator2.frequency.exponentialRampToValueAtTime(50, now + 0.4);
+
+    gain2.gain.setValueAtTime(0.0001, now);
+    gain2.gain.exponentialRampToValueAtTime(0.45, now + 0.03);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+
+    oscillator2.connect(gain2);
+    gain2.connect(audioContext.destination);
+
+    oscillator2.start(now);
+    oscillator2.stop(now + 0.6);
+
+}
+
+
+/* TIMER */
+
+function startTimer() {
+
+    stopTimer();
+
+    timeLeft = QUESTION_TIME_SECONDS;
+
+    updateTimerDisplay();
+
+    timerInterval = setInterval(() => {
+
+        timeLeft--;
+
+        updateTimerDisplay();
+
+        if (timeLeft <= 0) {
+
+            stopTimer();
+
+            if (!answered) {
+
+                selectAnswer(-1);
+
+            }
+
+        }
+
+    }, 1000);
+
+}
+
+
+function stopTimer() {
+
+    if (timerInterval) {
+
+        clearInterval(timerInterval);
+
+        timerInterval = null;
+
+    }
+
+}
+
+
+function updateTimerDisplay() {
+
+    const timerEl = document.getElementById("timer-display");
+
+    if (!timerEl) return;
+
+    timerEl.textContent = `⏱ ${Math.max(timeLeft, 0)}s`;
+
+    timerEl.classList.toggle("timer-warning", timeLeft <= 10);
+
+}
+
+
+/* LOAD QUESTION */
+
+function loadQuestion() {
+
+    const question =
+        questions[currentQuestion];
+
+
+    questionElement.textContent =
+        question.question;
+
+
+    questionNumberElement.textContent =
+        `Question ${currentQuestion + 1} of ${questions.length}`;
+
+
+    scoreDisplayElement.textContent =
+        `Score: ${score}`;
+
+
+    progressElement.style.width =
+        `${((currentQuestion + 1) / questions.length) * 100}%`;
+
+
+    optionsElement.innerHTML = "";
+
+
+    question.options.forEach(
+        (option, index) => {
+
+            const optionElement =
+                document.createElement("div");
+
+
+            optionElement.classList.add("option");
+
+
+            optionElement.textContent =
+                `${String.fromCharCode(65 + index)}. ${option}`;
+
+
+            optionElement.onclick =
+                () => selectAnswer(index);
+
+
+            optionsElement.appendChild(
+                optionElement
+            );
+
+        }
+    );
+
+
+    feedbackElement.className =
+        "feedback";
+
+
+    feedbackElement.innerHTML = "";
+
+
+    nextButton.style.display =
+        "none";
+
+
+    answered = false;
+
+
+    startTimer();
+
+}
+
+/* Escapes HTML special characters before inserting question data into
+   innerHTML — question/explanation text comes from user-uploaded CSV/JSON
+   in the Admin panel and must never be trusted as raw HTML. */
+
+function escapeHtml(str) {
+
+    const div = document.createElement("div");
+
+    div.textContent = str == null ? "" : String(str);
+
+    return div.innerHTML;
+
+}
+
+
+function selectAnswer(selectedIndex) {
+
+    if (answered) return;
+
+
+    answered = true;
+
+
+    stopTimer();
+
+
+    const question =
+        questions[currentQuestion];
+
+
+    const options =
+        document.querySelectorAll(".option");
+
+
+    options.forEach(
+        (option, index) => {
+
+            option.classList.add("disabled");
+
+
+            if (index === question.answer) {
+
+                option.classList.add("correct");
+
+            }
+
+
+            if (
+                index === selectedIndex &&
+                selectedIndex !== question.answer
+            ) {
+
+                option.classList.add("wrong");
+
+            }
+
+        }
+    );
+
+
+    if (
+        selectedIndex === question.answer
+    ) {
+
+        score++;
+
+
+        playCorrectSound();
+
+
+        feedbackElement.className =
+            "feedback correct-feedback";
+
+
+        feedbackElement.innerHTML =
+            `✅ <strong>Correct!</strong><br>
+            ${escapeHtml(question.explanation)}`;
+
+    }
+
+    else {
+
+        playWrongSound();
+
+
+        feedbackElement.className =
+            "feedback wrong-feedback";
+
+
+        const headline =
+            selectedIndex === -1
+                ? "⏰ <strong>Time's up!</strong><br>"
+                : "❌ <strong>Incorrect!</strong><br>";
+
+
+        feedbackElement.innerHTML =
+            `${headline}
+            Correct answer:
+            <strong>
+            ${escapeHtml(question.options[question.answer])}
+            </strong><br>
+            ${escapeHtml(question.explanation)}`;
+
+    }
+
+
+    scoreDisplayElement.textContent =
+        `Score: ${score}`;
+
+
+    nextButton.style.display =
+        "inline-block";
+
+}
+
+
+/* NEXT QUESTION */
+
+function nextQuestion() {
+
+    currentQuestion++;
+
+
+    if (
+        currentQuestion < questions.length
+    ) {
+
+        loadQuestion();
+
+    }
+
+    else {
+
+        showResult();
+
+    }
+
+}
+
+
+/* SHOW RESULT */
+
+function showResult() {
+
+    showOnly("result-screen");
+
+
+    document.getElementById(
+        "final-score"
+    ).textContent =
+        `${score} / ${questions.length}`;
+
+
+    const percentage =
+        Math.round(
+            (score / questions.length) * 100
+        );
+
+
+    document.getElementById(
+        "result-message"
+    ).textContent =
+        `You scored ${percentage}%. Keep improving your cybersecurity knowledge!`;
+
+}
+
+
+/* RESTART */
+
+function restartQuiz() {
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    answered = false;
+
+
+    showOnly("quiz-screen");
+
+
+    loadQuestion();
+
+}
+
+
+/* ==============================================================
+   SCREEN MANAGEMENT
+   ============================================================== */
+
+function showOnly(id) {
+
+    ["quiz-screen", "result-screen", "login-screen", "admin-screen", "start-screen"].forEach(
+
+        (sid) => {
+
+            document.getElementById(sid).style.display =
+                (sid === id) ? "block" : "none";
+
+        }
+
+    );
+
+}
+
+
+/* ==============================================================
+   ADMIN ACCESS / LOGIN
+   ============================================================== */
+
+function openAdmin() {
+
+    stopTimer();
+
+    if (isLoggedIn) {
+
+        showOnly("admin-screen");
+
+        renderAdminQuestionList();
+
+        document.getElementById("admin-title-input").value =
+            document.getElementById("page-title-start").textContent;
+
+        document.getElementById("admin-subtitle-input").value =
+            document.getElementById("page-subtitle-start").textContent;
+
+        document.getElementById("admin-bg-style").value = matrixConfig.style;
+
+        document.getElementById("admin-bg-speed").value = matrixConfig.speed;
+
+        document.getElementById("admin-bg-color").value = matrixConfig.color;
+
+    } else {
+
+        document.getElementById("login-username").value = "";
+
+        document.getElementById("login-password").value = "";
+
+        document.getElementById("login-error").style.display = "none";
+
+        showOnly("login-screen");
+
+    }
+
+}
+
+
+function attemptLogin(event) {
+
+    event.preventDefault();
+
+    const username = document.getElementById("login-username").value.trim();
+
+    const password = document.getElementById("login-password").value;
+
+
+    if (username === "csadmin" && password === "csadmin") {
+
+        document.getElementById("login-error").style.display = "none";
+
+        runBootSequence();
+
+    } else {
+
+        const errorEl = document.getElementById("login-error");
+
+        const box = document.querySelector(".login-box");
+
+        errorEl.style.display = "block";
+
+        box.classList.remove("shake");
+
+        void box.offsetWidth; // restart animation
+
+        box.classList.add("shake");
+
+        playWrongSound();
+
+    }
+
+}
+
+
+function logout() {
+
+    stopTimer();
+
+    isLoggedIn = false;
+
+    quizIsLive = false;
+
+    document.getElementById("main-topbar").style.display = "none";
+
+    document.getElementById("live-badge").style.display = "none";
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    showOnly("login-screen");
+
+}
+
+
+function startQuiz() {
+
+    quizIsLive = true;
+
+    document.getElementById("live-badge").style.display = "flex";
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    showOnly("quiz-screen");
+
+    loadQuestion();
+
+}
+
+
+function backToLobbyFromAdmin() {
+
+    stopTimer();
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    document.getElementById("start-question-count").textContent = questions.length;
+
+    showOnly("start-screen");
+
+}
+
+
+function runBootSequence() {
+
+    showOnly(null);
+
+    document.getElementById("boot-overlay").style.display = "flex";
+
+    const lines = [
+
+        "> establishing secure connection...",
+
+        "> verifying credentials...",
+
+        "> decrypting admin module...",
+
+        "> access granted_"
+
+    ];
+
+    const linesContainer = document.getElementById("boot-lines");
+
+    const progressFill = document.getElementById("boot-progress");
+
+    linesContainer.innerHTML = "";
+
+    progressFill.style.width = "0%";
+
+    let i = 0;
+
+
+    function nextLine() {
+
+        if (i < lines.length) {
+
+            const lineEl = document.createElement("div");
+
+            lineEl.className = "boot-line";
+
+            lineEl.textContent = lines[i];
+
+            linesContainer.appendChild(lineEl);
+
+            i++;
+
+            progressFill.style.width = `${Math.round((i / lines.length) * 100)}%`;
+
+            setTimeout(nextLine, 450);
+
+        } else {
+
+            setTimeout(() => {
+
+                document.getElementById("boot-overlay").style.display = "none";
+
+                isLoggedIn = true;
+
+                document.getElementById("main-topbar").style.display = "flex";
+
+                document.getElementById("start-question-count").textContent = questions.length;
+
+                showOnly("start-screen");
+
+            }, 550);
+
+        }
+
+    }
+
+    nextLine();
+
+}
+
+
+/* ==============================================================
+   ADMIN — QUESTION IMPORT (CSV / JSON)
+   ============================================================== */
+
+function showAdminStatus(message, isError) {
+
+    const statusEl = document.getElementById("admin-status");
+
+    statusEl.textContent = message;
+
+    statusEl.className = "admin-status " + (isError ? "error" : "success");
+
+}
+
+
+function copyAIPrompt() {
+
+    const text = document.getElementById("ai-prompt-text").value;
+
+    navigator.clipboard.writeText(text).then(
+
+        () => showAdminStatus("✅ Prompt copied to clipboard!", false)
+
+    ).catch(
+
+        () => showAdminStatus("⚠️ Couldn't auto-copy — please select and copy the prompt manually.", true)
+
+    );
+
+}
+
+
+function downloadSampleTemplate() {
+
+    const csvContent =
+`Question,OptionA,OptionB,OptionC,OptionD,CorrectAnswer,Explanation
+"What does VPN stand for?","Virtual Private Network","Verified Public Node","Virtual Public Network","Verified Private Network",A,"A VPN creates an encrypted tunnel over the internet, protecting data in transit."
+"Which port is commonly used by SSH?","21","22","443","3389",B,"Port 22 is the standard port used by SSH for secure remote access."
+"What is the primary goal of a DDoS attack?","Steal sensitive data","Encrypt files for ransom","Overwhelm a system to make it unavailable","Gain admin privileges",C,"A DDoS attack floods a target with traffic to disrupt normal service availability."
+`;
+
+    const blob = new Blob([csvContent], { type: "text/csv" });
+
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+
+    link.href = url;
+
+    link.download = "cybersecurity_quiz_template.csv";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+
+    showAdminStatus("⬇️ Sample template downloaded. Open it, or hand it to your AI tool as a format example.", false);
+
+}
+
+
+function loadFromText() {
+
+    const raw = document.getElementById("admin-textarea").value.trim();
+
+    if (!raw) {
+
+        showAdminStatus("⚠️ Paste some CSV or JSON text first.", true);
+
+        return;
+
+    }
+
+    processIncomingData(raw);
+
+}
+
+
+function loadFromFile(event) {
+
+    const file = event.target.files[0];
+
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = (e) => processIncomingData(e.target.result);
+
+    reader.onerror = () => showAdminStatus("⚠️ Couldn't read that file.", true);
+
+    reader.readAsText(file);
+
+    event.target.value = "";
+
+}
+
+
+function processIncomingData(text) {
+
+    const trimmed = text.trim();
+
+    let result;
+
+    if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+
+        result = parseJSONToQuestions(trimmed);
+
+    } else {
+
+        result = parseCSVToQuestions(trimmed);
+
+    }
+
+    if (result.valid.length === 0) {
+
+        showAdminStatus(
+            "❌ No valid questions found. " + (result.errors[0] || "Check the format and try again."),
+            true
+        );
+
+        return;
+
+    }
+
+    questions = result.valid;
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    try {
+
+        localStorage.setItem("csguy_questions", JSON.stringify(questions));
+
+    } catch (e) { /* storage unavailable, continue without persistence */ }
+
+
+    let message = `✅ Loaded ${result.valid.length} question(s) successfully!`;
+
+    if (result.errors.length > 0) {
+
+        message += ` (${result.errors.length} row(s) skipped — ${result.errors[0]})`;
+
+    }
+
+    showAdminStatus(message, false);
+
+    renderAdminQuestionList();
+
+    document.getElementById("admin-textarea").value = "";
+
+}
+
+
+function resolveAnswerIndex(raw, options) {
+
+    if (raw === undefined || raw === null) return -1;
+
+    const val = String(raw).trim();
+
+    const letterMap = { A: 0, B: 1, C: 2, D: 3 };
+
+    const upper = val.toUpperCase();
+
+    if (letterMap.hasOwnProperty(upper)) return letterMap[upper];
+
+    const num = parseInt(val, 10);
+
+    if (!isNaN(num) && num >= 1 && num <= 4) return num - 1;
+
+    if (!isNaN(num) && num >= 0 && num <= 3) return num;
+
+    const idx = options.findIndex(
+
+        (o) => o.trim().toLowerCase() === val.toLowerCase()
+
+    );
+
+    return idx;
+
+}
+
+
+function parseCSV(text) {
+
+    const rows = [];
+
+    let row = [];
+
+    let field = "";
+
+    let inQuotes = false;
+
+
+    for (let i = 0; i < text.length; i++) {
+
+        const char = text[i];
+
+        const next = text[i + 1];
+
+        if (inQuotes) {
+
+            if (char === '"' && next === '"') {
+
+                field += '"';
+
+                i++;
+
+            } else if (char === '"') {
+
+                inQuotes = false;
+
+            } else {
+
+                field += char;
+
+            }
+
+        } else {
+
+            if (char === '"') {
+
+                inQuotes = true;
+
+            } else if (char === ",") {
+
+                row.push(field);
+
+                field = "";
+
+            } else if (char === "\r") {
+
+                // skip
+
+            } else if (char === "\n") {
+
+                row.push(field);
+
+                rows.push(row);
+
+                row = [];
+
+                field = "";
+
+            } else {
+
+                field += char;
+
+            }
+
+        }
+
+    }
+
+    if (field.length > 0 || row.length > 0) {
+
+        row.push(field);
+
+        rows.push(row);
+
+    }
+
+    return rows.filter((r) => r.some((cell) => cell.trim().length > 0));
+
+}
+
+
+function parseCSVToQuestions(text) {
+
+    const rows = parseCSV(text);
+
+    const valid = [];
+
+    const errors = [];
+
+    if (rows.length < 2) {
+
+        return { valid, errors: ["CSV needs a header row plus at least one question row."] };
+
+    }
+
+    const normalize = (h) => h.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    const headers = rows[0].map(normalize);
+
+    const colIndex = (...names) => {
+
+        for (const n of names) {
+
+            const idx = headers.indexOf(n);
+
+            if (idx !== -1) return idx;
+
+        }
+
+        return -1;
+
+    };
+
+    const qIdx = colIndex("question");
+
+    const aIdx = colIndex("optiona", "option1", "a");
+
+    const bIdx = colIndex("optionb", "option2", "b");
+
+    const cIdx = colIndex("optionc", "option3", "c");
+
+    const dIdx = colIndex("optiond", "option4", "d");
+
+    const ansIdx = colIndex("correctanswer", "answer", "correct");
+
+    const expIdx = colIndex("explanation", "explain");
+
+    if ([qIdx, aIdx, bIdx, cIdx, dIdx, ansIdx].includes(-1)) {
+
+        return {
+            valid,
+            errors: ["CSV header must include: Question, OptionA, OptionB, OptionC, OptionD, CorrectAnswer, Explanation"]
+        };
+
+    }
+
+    for (let r = 1; r < rows.length; r++) {
+
+        const row = rows[r];
+
+        const questionText = (row[qIdx] || "").trim();
+
+        const options = [row[aIdx], row[bIdx], row[cIdx], row[dIdx]].map((o) => (o || "").trim());
+
+        const explanation = expIdx !== -1 ? (row[expIdx] || "").trim() : "";
+
+        if (!questionText || options.some((o) => !o)) {
+
+            errors.push(`row ${r + 1} missing question or option text`);
+
+            continue;
+
+        }
+
+        const answerIndex = resolveAnswerIndex(row[ansIdx], options);
+
+        if (answerIndex < 0 || answerIndex > 3) {
+
+            errors.push(`row ${r + 1} has an unrecognized CorrectAnswer`);
+
+            continue;
+
+        }
+
+        valid.push({
+
+            question: questionText,
+
+            options: options,
+
+            answer: answerIndex,
+
+            explanation: explanation
+
+        });
+
+    }
+
+    return { valid, errors };
+
+}
+
+
+function parseJSONToQuestions(text) {
+
+    const errors = [];
+
+    const valid = [];
+
+    let parsed;
+
+    try {
+
+        parsed = JSON.parse(text);
+
+    } catch (e) {
+
+        return { valid, errors: ["Invalid JSON — check for missing commas, quotes, or brackets."] };
+
+    }
+
+    if (!Array.isArray(parsed)) {
+
+        return { valid, errors: ["JSON must be an array of question objects."] };
+
+    }
+
+    parsed.forEach((item, i) => {
+
+        const questionText = (item.question || "").toString().trim();
+
+        const options = Array.isArray(item.options) ? item.options.map((o) => (o || "").toString().trim()) : [];
+
+        const explanation = (item.explanation || "").toString().trim();
+
+        if (!questionText || options.length !== 4 || options.some((o) => !o)) {
+
+            errors.push(`item ${i + 1} missing question or exactly 4 options`);
+
+            return;
+
+        }
+
+        const answerIndex = resolveAnswerIndex(item.answer, options);
+
+        if (answerIndex < 0 || answerIndex > 3) {
+
+            errors.push(`item ${i + 1} has an unrecognized answer`);
+
+            return;
+
+        }
+
+        valid.push({
+
+            question: questionText,
+
+            options: options,
+
+            answer: answerIndex,
+
+            explanation: explanation
+
+        });
+
+    });
+
+    return { valid, errors };
+
+}
+
+
+function renderAdminQuestionList() {
+
+    const listEl = document.getElementById("admin-question-list");
+
+    document.getElementById("admin-count").textContent = questions.length;
+
+    listEl.innerHTML = "";
+
+    questions.forEach((q, i) => {
+
+        const item = document.createElement("div");
+
+        item.className = "admin-q-item";
+
+        item.textContent = `${i + 1}. ${q.question}`;
+
+        listEl.appendChild(item);
+
+    });
+
+}
+
+
+function resetToDefault() {
+
+    questions = JSON.parse(JSON.stringify(DEFAULT_QUESTIONS));
+
+    try {
+
+        localStorage.removeItem("csguy_questions");
+
+    } catch (e) { /* ignore */ }
+
+    currentQuestion = 0;
+
+    score = 0;
+
+    renderAdminQuestionList();
+
+    showAdminStatus("🔄 Reset to the default question set.", false);
+
+}
+
+
+/* ==============================================================
+   HEADLINE TEXT (title / subtitle)
+   ============================================================== */
+
+const DEFAULT_PAGE_TITLE = "🔐 Cybersecurity MCQ Quiz";
+
+const DEFAULT_PAGE_SUBTITLE = "Test your cybersecurity knowledge";
+
+
+function applyPageText(title, subtitle) {
+
+    ["page-title-start", "page-title-quiz"].forEach(
+
+        (id) => { document.getElementById(id).textContent = title; }
+
+    );
+
+    ["page-subtitle-start", "page-subtitle-quiz"].forEach(
+
+        (id) => { document.getElementById(id).textContent = subtitle; }
+
+    );
+
+}
+
+
+function loadPageText() {
+
+    let title = DEFAULT_PAGE_TITLE;
+
+    let subtitle = DEFAULT_PAGE_SUBTITLE;
+
+    try {
+
+        const savedTitle = localStorage.getItem("csguy_title");
+
+        const savedSubtitle = localStorage.getItem("csguy_subtitle");
+
+        if (savedTitle) title = savedTitle;
+
+        if (savedSubtitle) subtitle = savedSubtitle;
+
+    } catch (e) { /* storage unavailable */ }
+
+    applyPageText(title, subtitle);
+
+}
+
+
+function saveHeadlineText() {
+
+    const title =
+        document.getElementById("admin-title-input").value.trim() || DEFAULT_PAGE_TITLE;
+
+    const subtitle =
+        document.getElementById("admin-subtitle-input").value.trim() || DEFAULT_PAGE_SUBTITLE;
+
+    try {
+
+        localStorage.setItem("csguy_title", title);
+
+        localStorage.setItem("csguy_subtitle", subtitle);
+
+    } catch (e) { /* storage unavailable */ }
+
+    applyPageText(title, subtitle);
+
+    showAdminStatus("✅ Headline text updated!", false);
+
+}
+
+
+loadPageText();
+
+
+/* ==============================================================
+   CUSTOM CURSOR
+   ============================================================== */
+
+(function initCustomCursor() {
+
+    if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return;
+
+
+    const dot = document.getElementById("cursor-dot");
+
+    const ring = document.getElementById("cursor-ring");
+
+    let mouseX = window.innerWidth / 2;
+
+    let mouseY = window.innerHeight / 2;
+
+    let ringX = mouseX;
+
+    let ringY = mouseY;
+
+
+    document.addEventListener("mousemove", (e) => {
+
+        mouseX = e.clientX;
+
+        mouseY = e.clientY;
+
+        dot.style.left = `${mouseX}px`;
+
+        dot.style.top = `${mouseY}px`;
+
+    });
+
+
+    function animateRing() {
+
+        ringX += (mouseX - ringX) * 0.18;
+
+        ringY += (mouseY - ringY) * 0.18;
+
+        ring.style.left = `${ringX}px`;
+
+        ring.style.top = `${ringY}px`;
+
+        requestAnimationFrame(animateRing);
+
+    }
+
+    animateRing();
+
+
+    const hoverSelector = "button, .option, input, textarea, label.file-drop, a";
+
+    document.addEventListener("mouseover", (e) => {
+
+        if (e.target.closest(hoverSelector)) ring.classList.add("cursor-hover");
+
+    });
+
+    document.addEventListener("mouseout", (e) => {
+
+        if (e.target.closest(hoverSelector)) ring.classList.remove("cursor-hover");
+
+    });
+
+})();
+
+
+showOnly("login-screen");
+
+</script>
+
+</body>
+
+</html>

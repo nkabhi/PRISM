@@ -1,0 +1,26 @@
+{
+  "name": "prism-toolkit",
+  "version": "1.0.0",
+  "description": "PRISM — Network & Security Toolkit with live diagnostics, DNS tools, threat-intel APIs, and an embedded quiz",
+  "main": "main.js",
+  "author": "Abhi",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "systeminformation": "^5.22.11"
+  },
+  "build": {
+    "appId": "com.thecybersecurityguy.prism",
+    "productName": "PRISM",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "preload.js", "index.html", "quiz.html"],
+    "win": { "target": "portable" }
+  }
+}
