@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="640" viewBox="0 0 1100 640">
+  <defs>
+    <linearGradient id="dashAccent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0ea5e9"/><stop offset="100%" stop-color="#22d3ee"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1100" height="640" fill="#06090c"/>
+
+  <!-- sidebar -->
+  <rect x="0" y="0" width="300" height="640" fill="#0b1620" stroke="#38bdf822"/>
+  <rect x="18" y="18" width="34" height="34" rx="9" fill="url(#dashAccent)"/>
+  <text x="62" y="35" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="16" font-weight="800" letter-spacing="1">PRISM</text>
+  <text x="62" y="49" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="8">NETWORK &amp; SECURITY TOOLKIT</text>
+
+  <rect x="16" y="72" width="268" height="44" rx="10" fill="#38bdf826" stroke="#38bdf866"/>
+  <text x="30" y="99" fill="#67e8f9" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">🏠 Dashboard</text>
+
+  <rect x="16" y="122" width="268" height="44" rx="10" fill="#a855f71f" stroke="#d946ef55"/>
+  <text x="30" y="149" fill="#f5d0fe" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">🎮 Live Quiz</text>
+
+  <rect x="16" y="172" width="268" height="44" rx="10" fill="#22c55e1f" stroke="#22c55e55"/>
+  <text x="30" y="199" fill="#bbf7d0" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">🛰️ Live Intel APIs</text>
+
+  <rect x="16" y="222" width="268" height="44" rx="10" fill="#fbbf241f" stroke="#fbbf2455"/>
+  <text x="30" y="249" fill="#fde68a" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700">👥 User Management</text>
+
+  <rect x="16" y="280" width="268" height="32" rx="8" fill="#000000" stroke="#38bdf822"/>
+  <text x="28" y="301" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="11">🔍 Search tools &amp; categories...</text>
+
+  <text x="16" y="335" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="9" letter-spacing="1">TOOL CATEGORIES</text>
+
+  <g font-family="Segoe UI, Arial, sans-serif" font-size="11.5" fill="#a7c4dd">
+    <text x="30" y="362">+ Network Diagnostics Toolkit</text>
+    <text x="30" y="388">+ DNS Toolkit</text>
+    <text x="30" y="414">+ Routing &amp; BGP Toolkit</text>
+    <text x="30" y="440">+ IP Address &amp; ASN Intelligence</text>
+    <text x="30" y="466">+ Vulnerability Scanning</text>
+    <text x="30" y="492">+ Web &amp; API Security Tools</text>
+    <text x="30" y="518">+ OSINT &amp; Reconnaissance</text>
+    <text x="30" y="544" fill="#475569">+ 19 more categories...</text>
+  </g>
+
+  <!-- topbar -->
+  <rect x="300" y="0" width="800" height="60" fill="#0a1218" stroke="#38bdf822"/>
+  <text x="326" y="35" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">🏠 Dashboard</text>
+
+  <circle cx="1030" cy="30" r="15" fill="url(#dashAccent)"/>
+  <text x="1030" y="35" fill="#04121c" font-family="Segoe UI, Arial, sans-serif" font-size="11" font-weight="800" text-anchor="middle">AB</text>
+  <text x="990" y="27" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="11" text-anchor="end" font-weight="600">abhi</text>
+  <text x="990" y="39" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="9" text-anchor="end">ADMIN</text>
+
+  <!-- stat cards -->
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="326" y="84" width="176" height="76" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="344" y="122" fill="#38bdf8" font-size="26" font-weight="800">26</text>
+    <text x="344" y="142" fill="#7ea3c2" font-size="9" letter-spacing="1">CATEGORIES</text>
+
+    <rect x="514" y="84" width="176" height="76" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="532" y="122" fill="#38bdf8" font-size="26" font-weight="800">476</text>
+    <text x="532" y="142" fill="#7ea3c2" font-size="9" letter-spacing="1">TOOLS MAPPED</text>
+
+    <rect x="702" y="84" width="176" height="76" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="720" y="122" fill="#38bdf8" font-size="26" font-weight="800">3</text>
+    <text x="720" y="142" fill="#7ea3c2" font-size="9" letter-spacing="1">LIVE TOOLKITS</text>
+
+    <rect x="890" y="84" width="176" height="76" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="908" y="122" fill="#38bdf8" font-size="24" font-weight="800">4 / 7</text>
+    <text x="908" y="142" fill="#7ea3c2" font-size="9" letter-spacing="1">API KEYS CONNECTED</text>
+  </g>
+
+  <!-- system monitor charts -->
+  <text x="326" y="192" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">System Monitor</text>
+
+  <g>
+    <rect x="326" y="204" width="230" height="110" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="342" y="228" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="11.5" font-weight="600">CPU Usage</text>
+    <text x="536" y="228" fill="#38bdf8" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="800" text-anchor="end">37%</text>
+    <polyline points="342,290 365,275 388,282 411,260 434,268 457,250 480,255 503,240 526,248 540,235" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+
+    <rect x="572" y="204" width="230" height="110" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="588" y="228" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="11.5" font-weight="600">Memory Usage</text>
+    <text x="782" y="228" fill="#38bdf8" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="800" text-anchor="end">62%</text>
+    <polyline points="588,270 611,268 634,272 657,265 680,266 703,260 726,262 749,258 772,255 786,254" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+
+    <rect x="818" y="204" width="248" height="110" rx="12" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="834" y="228" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="11.5" font-weight="600">Network Throughput</text>
+    <text x="1050" y="228" fill="#38bdf8" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="800" text-anchor="end">184 KB/s</text>
+    <polyline points="834,300 858,285 882,295 906,270 930,288 954,260 978,275 1002,250 1026,265 1050,245" fill="none" stroke="#38bdf8" stroke-width="2.5"/>
+  </g>
+
+  <!-- quick launch -->
+  <text x="326" y="350" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Quick Launch</text>
+  <g font-family="Segoe UI, Arial, sans-serif">
+    <rect x="326" y="362" width="176" height="72" rx="10" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="342" y="388" font-size="16">🌐</text>
+    <text x="342" y="410" fill="#eef6ff" font-size="11.5" font-weight="600">Network Diagnostics</text>
+
+    <rect x="514" y="362" width="176" height="72" rx="10" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="530" y="388" font-size="16">🔎</text>
+    <text x="530" y="410" fill="#eef6ff" font-size="11.5" font-weight="600">DNS Toolkit</text>
+
+    <rect x="702" y="362" width="176" height="72" rx="10" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="718" y="388" font-size="16">🛰️</text>
+    <text x="718" y="410" fill="#eef6ff" font-size="11.5" font-weight="600">Live Intel APIs</text>
+
+    <rect x="890" y="362" width="176" height="72" rx="10" fill="#0b1620" stroke="#38bdf822"/>
+    <text x="906" y="388" font-size="16">🎮</text>
+    <text x="906" y="410" fill="#eef6ff" font-size="11.5" font-weight="600">Live Quiz</text>
+  </g>
+
+  <!-- activity -->
+  <text x="326" y="462" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Recent Activity</text>
+  <rect x="326" y="474" width="740" height="130" rx="10" fill="#0b1620" stroke="#38bdf822"/>
+  <g font-family="Consolas, monospace" font-size="11" fill="#94e8bb">
+    <text x="342" y="500">Ran ping google.com</text>
+    <text x="342" y="526">Queried shodan-internetdb for 8.8.8.8</text>
+    <text x="342" y="552">Ran nslookup cloudflare.com</text>
+    <text x="342" y="578">Queried crtsh for example.com</text>
+  </g>
+  <g font-family="Consolas, monospace" font-size="10.5" fill="#475569" text-anchor="end">
+    <text x="1050" y="500">14:22:01</text>
+    <text x="1050" y="526">14:21:44</text>
+    <text x="1050" y="552">14:20:58</text>
+    <text x="1050" y="578">14:19:33</text>
+  </g>
+
+</svg>

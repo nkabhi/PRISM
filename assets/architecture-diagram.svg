@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="640" viewBox="0 0 1000 640">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+
+  <rect width="1000" height="640" fill="#06090c"/>
+  <text x="30" y="40" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="700">PRISM Architecture — Security Boundaries</text>
+  <text x="30" y="62" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="12.5">The renderer never touches the network or the OS directly — every action passes through a fixed, pre-approved registry.</text>
+
+  <!-- Renderer box -->
+  <rect x="30" y="100" width="280" height="200" rx="14" fill="#0b1620" stroke="#38bdf855" stroke-width="1.5"/>
+  <text x="50" y="130" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">Renderer (index.html)</text>
+  <text x="50" y="150" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">nodeIntegration: false</text>
+  <text x="50" y="167" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">contextIsolation: true</text>
+  <text x="50" y="184" font-family="Segoe UI, Arial, sans-serif" font-size="11.5" fill="#7ea3c2">sandbox: true</text>
+  <text x="50" y="210" fill="#94e8bb" font-family="Consolas, monospace" font-size="11">window.prismAPI.runDiag(id, target)</text>
+  <text x="50" y="228" fill="#94e8bb" font-family="Consolas, monospace" font-size="11">window.prismAPI.callApi(id, params)</text>
+  <text x="50" y="246" fill="#94e8bb" font-family="Consolas, monospace" font-size="11">window.prismAPI.login(user, pass)</text>
+  <text x="50" y="264" fill="#f87171" font-family="Consolas, monospace" font-size="11">CSP: connect-src locked to 11 domains</text>
+  <text x="50" y="282" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">(fallback path only — real calls never leave main)</text>
+
+  <!-- Preload box -->
+  <rect x="360" y="100" width="260" height="200" rx="14" fill="#0b1620" stroke="#a855f755" stroke-width="1.5"/>
+  <text x="380" y="130" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">preload.js</text>
+  <text x="380" y="150" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">contextBridge.exposeInMainWorld</text>
+  <text x="380" y="180" fill="#e9d5ff" font-family="Consolas, monospace" font-size="11">Only 9 fixed methods exposed:</text>
+  <text x="380" y="200" fill="#e9d5ff" font-family="Consolas, monospace" font-size="10.5">callApi · runDiag · saveKey</text>
+  <text x="380" y="216" fill="#e9d5ff" font-family="Consolas, monospace" font-size="10.5">deleteKey · keyStatus · login</text>
+  <text x="380" y="232" fill="#e9d5ff" font-family="Consolas, monospace" font-size="10.5">createUser · getUsers · getSystemStats</text>
+  <text x="380" y="262" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">No "runArbitraryCommand".</text>
+  <text x="380" y="278" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">No "fetchAnyUrl". This is the ceiling.</text>
+
+  <!-- Main process box -->
+  <rect x="670" y="100" width="300" height="440" rx="14" fill="#0b1620" stroke="#22c55e55" stroke-width="1.5"/>
+  <text x="690" y="130" fill="#eef6ff" font-family="Segoe UI, Arial, sans-serif" font-size="15" font-weight="700">main.js (Node, full trust)</text>
+
+  <rect x="690" y="150" width="260" height="90" rx="8" fill="#06120c" stroke="#22c55e33"/>
+  <text x="704" y="172" fill="#86efac" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">SERVICES registry</text>
+  <text x="704" y="190" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">19 fixed API definitions</text>
+  <text x="704" y="205" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">renderer sends id + target only</text>
+  <text x="704" y="220" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">— never a raw URL</text>
+
+  <rect x="690" y="250" width="260" height="90" rx="8" fill="#06120c" stroke="#22c55e33"/>
+  <text x="704" y="272" fill="#86efac" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">DIAG_COMMANDS registry</text>
+  <text x="704" y="290" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">execFile, never shell exec</text>
+  <text x="704" y="305" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">target validated: /^[a-zA-Z0-9.\-:]+$/</text>
+  <text x="704" y="320" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">before it ever reaches the OS</text>
+
+  <rect x="690" y="350" width="260" height="90" rx="8" fill="#06120c" stroke="#22c55e33"/>
+  <text x="704" y="372" fill="#86efac" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">User store + API keys</text>
+  <text x="704" y="390" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">passwords: PBKDF2, per-user salt</text>
+  <text x="704" y="405" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">API keys: Electron safeStorage</text>
+  <text x="704" y="420" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">(OS keychain-backed encryption)</text>
+
+  <rect x="690" y="450" width="260" height="70" rx="8" fill="#06120c" stroke="#22c55e33"/>
+  <text x="704" y="472" fill="#86efac" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="600">systeminformation</text>
+  <text x="704" y="490" fill="#7ea3c2" font-family="Segoe UI, Arial, sans-serif" font-size="10.5">real CPU / memory / network stats</text>
+
+  <!-- arrows -->
+  <line x1="310" y1="180" x2="358" y2="180" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="620" y1="180" x2="668" y2="180" stroke="#a855f7" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- external world -->
+  <rect x="30" y="360" width="600" height="180" rx="14" fill="#0b1620" stroke="#fbbf2455" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="50" y="390" fill="#fbbf24" font-family="Segoe UI, Arial, sans-serif" font-size="14" font-weight="700">Outside the app (only main.js ever reaches these)</text>
+  <text x="50" y="415" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">Windows OS commands: ping, tracert, netstat, nslookup, curl...</text>
+  <text x="50" y="437" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">No-key APIs: Shodan InternetDB, crt.sh, Google/Cloudflare DoH, SSL Labs, HackerTarget, RDAP, abuse.ch</text>
+  <text x="50" y="459" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">Key-based APIs: IPinfo, AbuseIPDB, VirusTotal, OTX, GreyNoise, Censys, SecurityTrails</text>
+  <text x="50" y="481" fill="#94a3b8" font-family="Segoe UI, Arial, sans-serif" font-size="11.5">systeminformation: local OS CPU/mem/network counters (no external network call)</text>
+
+  <line x1="800" y1="540" x2="500" y2="540" stroke="#fbbf24" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="800" y1="540" x2="800" y2="540" stroke="none"/>
+  <path d="M 800 540 L 800 445" stroke="#fbbf24" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+  <text x="500" y="605" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="11" text-anchor="middle">Even a compromised renderer (e.g. via injected content) is limited to this fixed menu — nothing more.</text>
+</svg>

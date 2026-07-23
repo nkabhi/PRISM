@@ -1,0 +1,16 @@
+# Dependencies (huge, reinstall with `npm install`)
+node_modules/
+
+# Build output (rebuild with `npm run dist`)
+dist/
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Never commit local user accounts or API keys — these live outside the
+# project folder anyway (in Electron's userData directory), but excluded
+# here as a safety net in case that ever changes.
+prism-users.json
+prism-keys.json
