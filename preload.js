@@ -12,11 +12,25 @@ contextBridge.exposeInMainWorld("prismAPI", {
 
     runDiag: (commandId, target) => ipcRenderer.invoke("prism:run-diag", commandId, target),
 
-    saveKey: (serviceId, key) => ipcRenderer.invoke("prism:save-key", serviceId, key),
+    vaultExists: () => ipcRenderer.invoke("prism:vault-exists"),
 
-    deleteKey: (serviceId) => ipcRenderer.invoke("prism:delete-key", serviceId),
+    vaultStatus: () => ipcRenderer.invoke("prism:vault-status"),
 
-    keyStatus: () => ipcRenderer.invoke("prism:key-status"),
+    vaultCreate: (password) => ipcRenderer.invoke("prism:vault-create", password),
+
+    vaultUnlock: (password) => ipcRenderer.invoke("prism:vault-unlock", password),
+
+    vaultLock: () => ipcRenderer.invoke("prism:vault-lock"),
+
+    vaultSaveKey: (serviceId, key) => ipcRenderer.invoke("prism:vault-save-key", serviceId, key),
+
+    vaultDeleteKey: (serviceId) => ipcRenderer.invoke("prism:vault-delete-key", serviceId),
+
+    vaultKeyStatus: () => ipcRenderer.invoke("prism:vault-key-status"),
+
+    vaultExport: () => ipcRenderer.invoke("prism:vault-export"),
+
+    vaultImport: () => ipcRenderer.invoke("prism:vault-import"),
 
     hasUsers: () => ipcRenderer.invoke("prism:has-users"),
 

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, ipcMain, safeStorage } = require("electron");
+const { app, BrowserWindow, Menu, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
@@ -179,69 +179,213 @@ ipcMain.handle("prism:get-system-stats", async () => {
 });
 
 /* ==========================================================================
-   API KEY STORAGE
-   Keys are encrypted at rest using Electron's safeStorage (OS keychain-backed
-   on Windows/macOS) and live in a config file in the app's userData folder —
-   never in localStorage, never in the renderer's reach except by asking this
-   process for a masked status ("connected: yes/no"), never the raw key.
+   API KEY VAULT
+   Design goals, specifically against a same-user code-execution attacker:
+
+   1. Keys are encrypted with AES-256-GCM under a key derived (scrypt) from
+      a MASTER PASSWORD you set — never stored anywhere, never written to
+      disk, held only in memory, and only while the vault is unlocked.
+   2. The vault file itself is fully portable (no OS/DPAPI binding), which
+      is what makes Export/Import across machines actually work — its
+      security rests entirely on the strength of your master password +
+      scrypt's deliberately expensive KDF, not on machine identity.
+   3. Nothing is decrypted "at startup" and kept resident. Each individual
+      key is decrypted just-in-time, immediately before the one fetch call
+      that needs it, and the plaintext variable is allowed to fall out of
+      scope immediately after — not stored in any longer-lived object.
+   4. The vault auto-locks after 15 minutes idle, wiping the derived key
+      from memory and requiring the master password again.
+   5. Basic rate-limiting on key decryption blunts a script trying to
+      rapid-fire pull every stored key in a loop.
+
+   Honest limit: none of this defeats an attacker who already has code
+   execution AND the vault unlocked in the same live session — at that
+   point they can call the same decrypt function this code calls. That's
+   true of every password manager's *unlocked* state, this app included.
+   What this defends against is: the vault FILE alone (stolen, copied,
+   or leaked) being useless without the master password, and the window
+   of live exposure being minutes per use instead of the app's lifetime.
    ========================================================================== */
 
-const CONFIG_PATH = path.join(app.getPath("userData"), "prism-keys.json");
+const VAULT_PATH = path.join(app.getPath("userData"), "prism-vault.json");
+const VAULT_IDLE_LOCK_MS = 15 * 60 * 1000; // 15 minutes
 
-function loadStoredKeys() {
+let vaultDerivedKey = null;   // Buffer, only while unlocked
+let vaultLockTimer = null;
+const keyUseTimestamps = {};  // serviceId -> [recent decrypt timestamps], for rate limiting
 
-    if (!fs.existsSync(CONFIG_PATH)) return {};
+function vaultExists() {
+    return fs.existsSync(VAULT_PATH);
+}
+
+function loadVaultFile() {
+    if (!vaultExists()) return null;
+    try { return JSON.parse(fs.readFileSync(VAULT_PATH, "utf8")); } catch (e) { return null; }
+}
+
+function saveVaultFile(vault) {
+    fs.writeFileSync(VAULT_PATH, JSON.stringify(vault, null, 2), { mode: 0o600 });
+}
+
+function deriveVaultKey(password, saltHex) {
+    // scrypt: deliberately memory/CPU-hard, resists brute-forcing far better
+    // than PBKDF2 against an offline attacker who only has the vault file.
+    return crypto.scryptSync(password, Buffer.from(saltHex, "hex"), 32, { N: 16384, r: 8, p: 1 });
+}
+
+function resetVaultIdleTimer() {
+    if (vaultLockTimer) clearTimeout(vaultLockTimer);
+    vaultLockTimer = setTimeout(() => { lockVault(); }, VAULT_IDLE_LOCK_MS);
+}
+
+function lockVault() {
+    if (vaultDerivedKey) vaultDerivedKey.fill(0); // zero the buffer, don't just drop the reference
+    vaultDerivedKey = null;
+    if (vaultLockTimer) { clearTimeout(vaultLockTimer); vaultLockTimer = null; }
+}
+
+function createVault(password) {
+
+    if (vaultExists()) return { ok: false, error: "A vault already exists." };
+
+    const salt = crypto.randomBytes(16).toString("hex");
+    const key = deriveVaultKey(password, salt);
+
+    // store an encrypted "check" value so unlock() can verify the password
+    // is correct before treating the derived key as valid
+    const checkPlain = "prism-vault-ok";
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+    const enc = Buffer.concat([cipher.update(checkPlain, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    saveVaultFile({
+        salt,
+        check: { iv: iv.toString("hex"), authTag: authTag.toString("hex"), data: enc.toString("hex") },
+        keys: {}
+    });
+
+    key.fill(0);
+
+    return { ok: true };
+
+}
+
+function unlockVault(password) {
+
+    const vault = loadVaultFile();
+
+    if (!vault) return { ok: false, error: "No vault exists yet." };
+
+    const key = deriveVaultKey(password, vault.salt);
 
     try {
 
-        const raw = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-        const decrypted = {};
+        const decipher = crypto.createDecipheriv("aes-256-gcm", key, Buffer.from(vault.check.iv, "hex"));
+        decipher.setAuthTag(Buffer.from(vault.check.authTag, "hex"));
+        const check = Buffer.concat([decipher.update(Buffer.from(vault.check.data, "hex")), decipher.final()]).toString("utf8");
 
-        for (const [service, encB64] of Object.entries(raw)) {
-
-            try {
-                decrypted[service] = safeStorage.decryptString(Buffer.from(encB64, "base64"));
-            } catch (e) {
-                // corrupted/unavailable — skip this one key rather than failing everything
-            }
-
-        }
-
-        return decrypted;
+        if (check !== "prism-vault-ok") throw new Error("bad password");
 
     } catch (e) {
 
-        return {};
+        key.fill(0);
+        return { ok: false, error: "Incorrect master password." };
+
+    }
+
+    lockVault(); // clear any prior key first
+    vaultDerivedKey = key;
+    resetVaultIdleTimer();
+
+    return { ok: true };
+
+}
+
+function vaultSaveKey(serviceId, plainTextKey) {
+
+    if (!vaultDerivedKey) return { ok: false, error: "Vault is locked." };
+
+    resetVaultIdleTimer();
+
+    const vault = loadVaultFile();
+    if (!vault) return { ok: false, error: "No vault exists." };
+
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv("aes-256-gcm", vaultDerivedKey, iv);
+    const enc = Buffer.concat([cipher.update(plainTextKey, "utf8"), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+
+    vault.keys[serviceId] = { iv: iv.toString("hex"), authTag: authTag.toString("hex"), data: enc.toString("hex") };
+
+    saveVaultFile(vault);
+
+    return { ok: true };
+
+}
+
+function vaultDeleteKeyEntry(serviceId) {
+
+    const vault = loadVaultFile();
+    if (!vault) return { ok: false, error: "No vault exists." };
+
+    delete vault.keys[serviceId];
+    saveVaultFile(vault);
+
+    return { ok: true };
+
+}
+
+function vaultKeyStatusAll() {
+
+    const vault = loadVaultFile();
+    const status = {};
+
+    KEY_SERVICE_IDS.forEach((id) => { status[id] = !!(vault && vault.keys[id]); });
+
+    return status;
+
+}
+
+const RATE_LIMIT_MAX = 20;        // max decrypts per service
+const RATE_LIMIT_WINDOW_MS = 60000; // per rolling minute
+
+function decryptKeyJustInTime(serviceId) {
+
+    if (!vaultDerivedKey) return { ok: false, error: "Vault is locked. Unlock it in Live Intel APIs first." };
+
+    const now = Date.now();
+    const history = (keyUseTimestamps[serviceId] || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+
+    if (history.length >= RATE_LIMIT_MAX) {
+        return { ok: false, error: "Rate limit hit for this key — too many requests in the last minute." };
+    }
+
+    history.push(now);
+    keyUseTimestamps[serviceId] = history;
+
+    resetVaultIdleTimer();
+
+    const vault = loadVaultFile();
+    const entry = vault && vault.keys[serviceId];
+
+    if (!entry) return { ok: false, error: "No key saved for this service." };
+
+    try {
+
+        const decipher = crypto.createDecipheriv("aes-256-gcm", vaultDerivedKey, Buffer.from(entry.iv, "hex"));
+        decipher.setAuthTag(Buffer.from(entry.authTag, "hex"));
+        const plain = Buffer.concat([decipher.update(Buffer.from(entry.data, "hex")), decipher.final()]).toString("utf8");
+
+        return { ok: true, key: plain };
+
+    } catch (e) {
+
+        return { ok: false, error: "Could not decrypt this key." };
 
     }
 
 }
-
-function saveKey(service, plainTextKey) {
-
-    const current = fs.existsSync(CONFIG_PATH) ? JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8")) : {};
-
-    const encrypted = safeStorage.encryptString(plainTextKey);
-
-    current[service] = encrypted.toString("base64");
-
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2), { mode: 0o600 });
-
-}
-
-function deleteKey(service) {
-
-    if (!fs.existsSync(CONFIG_PATH)) return;
-
-    const current = JSON.parse(fs.readFileSync(CONFIG_PATH, "utf8"));
-
-    delete current[service];
-
-    fs.writeFileSync(CONFIG_PATH, JSON.stringify(current, null, 2), { mode: 0o600 });
-
-}
-
-let apiKeys = {}; // loaded fresh on app start
 
 /* ==========================================================================
    API SERVICE REGISTRY
@@ -361,11 +505,21 @@ async function callService(serviceId, params) {
 
     if (!svc) return { ok: false, error: "Unknown service: " + serviceId };
 
-    if (svc.requiresKey && !apiKeys[serviceId]) {
-        return { ok: false, error: "No API key saved for this service yet. Add one in Settings → API Keys." };
+    let keyMaterial = null;
+
+    if (svc.requiresKey) {
+
+        const decrypted = decryptKeyJustInTime(serviceId);
+
+        if (!decrypted.ok) return { ok: false, error: decrypted.error };
+
+        keyMaterial = decrypted.key;
+
     }
 
-    const built = svc.build(params, apiKeys[serviceId]);
+    const built = svc.build(params, keyMaterial);
+
+    keyMaterial = null; // let it fall out of scope immediately after building the one request that needed it
 
     try {
 
@@ -475,39 +629,79 @@ ipcMain.handle("prism:run-diag", async (event, commandId, target) => {
     return await runDiagCommand(commandId, target);
 });
 
-ipcMain.handle("prism:save-key", async (event, serviceId, key) => {
+ipcMain.handle("prism:vault-exists", async () => vaultExists());
 
+ipcMain.handle("prism:vault-status", async () => ({ exists: vaultExists(), unlocked: !!vaultDerivedKey }));
+
+ipcMain.handle("prism:vault-create", async (event, password) => {
+    if (!password || password.length < 8) return { ok: false, error: "Master password must be at least 8 characters." };
+    return createVault(password);
+});
+
+ipcMain.handle("prism:vault-unlock", async (event, password) => unlockVault(password));
+
+ipcMain.handle("prism:vault-lock", async () => { lockVault(); return { ok: true }; });
+
+ipcMain.handle("prism:vault-save-key", async (event, serviceId, key) => {
     if (!KEY_SERVICE_IDS.includes(serviceId)) return { ok: false, error: "Unknown service" };
+    return vaultSaveKey(serviceId, key);
+});
 
-    try {
-        saveKey(serviceId, key);
-        apiKeys[serviceId] = key;
-        return { ok: true };
-    } catch (e) {
-        return { ok: false, error: e.message };
-    }
+ipcMain.handle("prism:vault-delete-key", async (event, serviceId) => vaultDeleteKeyEntry(serviceId));
+
+ipcMain.handle("prism:vault-key-status", async () => vaultKeyStatusAll());
+
+ipcMain.handle("prism:vault-export", async (event, browserWindow) => {
+
+    const win = BrowserWindow.getFocusedWindow();
+
+    const { canceled, filePath } = await dialog.showSaveDialog(win, {
+        title: "Export PRISM Key Vault",
+        defaultPath: "prism-vault-export.json",
+        filters: [{ name: "PRISM Vault", extensions: ["json"] }]
+    });
+
+    if (canceled || !filePath) return { ok: false, error: "Export cancelled." };
+
+    const vault = loadVaultFile();
+    if (!vault) return { ok: false, error: "No vault to export." };
+
+    fs.writeFileSync(filePath, JSON.stringify(vault, null, 2));
+
+    return { ok: true, path: filePath };
 
 });
 
-ipcMain.handle("prism:delete-key", async (event, serviceId) => {
+ipcMain.handle("prism:vault-import", async () => {
+
+    const win = BrowserWindow.getFocusedWindow();
+
+    const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+        title: "Import PRISM Key Vault",
+        filters: [{ name: "PRISM Vault", extensions: ["json"] }],
+        properties: ["openFile"]
+    });
+
+    if (canceled || !filePaths[0]) return { ok: false, error: "Import cancelled." };
 
     try {
-        deleteKey(serviceId);
-        delete apiKeys[serviceId];
+
+        const imported = JSON.parse(fs.readFileSync(filePaths[0], "utf8"));
+
+        if (!imported.salt || !imported.check || !imported.keys) {
+            return { ok: false, error: "That file doesn't look like a valid PRISM vault export." };
+        }
+
+        lockVault(); // any previously-unlocked session key is now invalid for the new file
+        saveVaultFile(imported);
+
         return { ok: true };
+
     } catch (e) {
-        return { ok: false, error: e.message };
+
+        return { ok: false, error: "Couldn't read that file: " + e.message };
+
     }
-
-});
-
-ipcMain.handle("prism:key-status", async () => {
-
-    const status = {};
-
-    KEY_SERVICE_IDS.forEach((id) => { status[id] = !!apiKeys[id]; });
-
-    return status;
 
 });
 
@@ -541,11 +735,22 @@ function createWindow() {
 
     win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
+    // Defense-in-depth: block the usual DevTools shortcuts in the packaged
+    // app. The renderer never holds plaintext keys regardless, but this
+    // reduces casual introspection surface on a shared/kiosk-style machine.
+    win.webContents.on("before-input-event", (event, input) => {
+
+        const isDevToolsShortcut =
+            (input.control && input.shift && input.key.toLowerCase() === "i") ||
+            input.key === "F12";
+
+        if (isDevToolsShortcut) event.preventDefault();
+
+    });
+
 }
 
 app.whenReady().then(() => {
-
-    apiKeys = loadStoredKeys();
 
     createWindow();
 

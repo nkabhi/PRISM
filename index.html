@@ -2564,10 +2564,18 @@ const KEY_APIS = [
     { id: "securitytrails", name: "SecurityTrails", desc: "Historical DNS/subdomains", signup: "https://securitytrails.com/app/signup", limit: "Limited queries/month" }
 ];
 
+let vaultStatusCache = { exists: false, unlocked: false };
+
 async function refreshKeyStatus() {
 
-    if (window.prismAPI && typeof window.prismAPI.keyStatus === "function") {
-        keyStatusCache = await window.prismAPI.keyStatus();
+    if (window.prismAPI && typeof window.prismAPI.vaultStatus === "function") {
+        vaultStatusCache = await window.prismAPI.vaultStatus();
+    }
+
+    if (window.prismAPI && typeof window.prismAPI.vaultKeyStatus === "function" && vaultStatusCache.exists) {
+        keyStatusCache = await window.prismAPI.vaultKeyStatus();
+    } else {
+        keyStatusCache = {};
     }
 
 }
@@ -2600,13 +2608,146 @@ function updateApiNavActive() {
 
 }
 
+function buildVaultPanel() {
+
+    if (!vaultStatusCache.exists) {
+
+        return `
+            <div class="settings-panel">
+                <div class="group-heading" style="margin-top:0;">🔐 Key Vault — not set up yet</div>
+                <div class="group-guidance">Create a master password to start storing API keys. This password is never saved anywhere — only you know it, and it's required each session to unlock your keys. Keys are encrypted with AES-256-GCM, derived from this password via scrypt.</div>
+                <div class="runner-row">
+                    <input type="password" id="vault-new-password" placeholder="Choose a master password (min. 8 characters)">
+                    <button onclick="handleVaultCreate()">🔐 Create Vault</button>
+                </div>
+                <div class="login-error" id="vault-error"></div>
+            </div>
+        `;
+
+    }
+
+    if (!vaultStatusCache.unlocked) {
+
+        return `
+            <div class="settings-panel">
+                <div class="group-heading" style="margin-top:0;">🔒 Key Vault — locked</div>
+                <div class="group-guidance">Enter your master password to unlock this session. The vault auto-locks after 15 minutes idle.</div>
+                <div class="runner-row">
+                    <input type="password" id="vault-unlock-password" placeholder="Master password">
+                    <button onclick="handleVaultUnlock()">🔓 Unlock</button>
+                </div>
+                <div class="login-error" id="vault-error"></div>
+                <div class="admin-actions" style="margin-top:12px;">
+                    <button class="btn-secondary" onclick="handleVaultImport()">⬆ Import Vault</button>
+                </div>
+            </div>
+        `;
+
+    }
+
+    return `
+        <div class="settings-panel">
+            <div class="group-heading" style="margin-top:0;">🔓 Key Vault — unlocked <span class="key-badge connected">ACTIVE THIS SESSION</span></div>
+            <div class="group-guidance">Auto-locks after 15 minutes idle. Export makes a portable encrypted copy you can back up or move to another machine — you'll still need this same master password to unlock it there.</div>
+            <div class="admin-actions">
+                <button class="btn-secondary" onclick="handleVaultLock()">🔒 Lock Now</button>
+                <button class="btn-secondary" onclick="handleVaultExport()">⬇ Export Vault</button>
+                <button class="btn-secondary" onclick="handleVaultImport()">⬆ Import Vault</button>
+            </div>
+            <div class="login-error" id="vault-error"></div>
+        </div>
+    `;
+
+}
+
+async function handleVaultCreate() {
+
+    const pw = document.getElementById("vault-new-password").value;
+    const errEl = document.getElementById("vault-error");
+
+    errEl.classList.remove("show");
+
+    if (!window.prismAPI || !window.prismAPI.vaultCreate) {
+        errEl.textContent = "Vault requires running inside the PRISM desktop app.";
+        errEl.classList.add("show");
+        return;
+    }
+
+    const result = await window.prismAPI.vaultCreate(pw);
+
+    if (!result.ok) { errEl.textContent = result.error; errEl.classList.add("show"); return; }
+
+    const unlockResult = await window.prismAPI.vaultUnlock(pw);
+
+    logActivity("Created and unlocked the key vault");
+
+    await refreshKeyStatus();
+    renderLiveApisContent();
+
+}
+
+async function handleVaultUnlock() {
+
+    const pw = document.getElementById("vault-unlock-password").value;
+    const errEl = document.getElementById("vault-error");
+
+    errEl.classList.remove("show");
+
+    const result = await window.prismAPI.vaultUnlock(pw);
+
+    if (!result.ok) { errEl.textContent = result.error; errEl.classList.add("show"); return; }
+
+    logActivity("Unlocked the key vault");
+
+    await refreshKeyStatus();
+    renderLiveApisContent();
+
+}
+
+async function handleVaultLock() {
+
+    await window.prismAPI.vaultLock();
+
+    logActivity("Locked the key vault");
+
+    await refreshKeyStatus();
+    renderLiveApisContent();
+
+}
+
+async function handleVaultExport() {
+
+    const result = await window.prismAPI.vaultExport();
+
+    if (result.ok) logActivity("Exported the key vault to " + result.path);
+
+}
+
+async function handleVaultImport() {
+
+    const result = await window.prismAPI.vaultImport();
+
+    const errEl = document.getElementById("vault-error");
+
+    if (!result.ok) {
+        if (errEl) { errEl.textContent = result.error; errEl.classList.add("show"); }
+        return;
+    }
+
+    logActivity("Imported a key vault — enter its master password to unlock");
+
+    await refreshKeyStatus();
+    renderLiveApisContent();
+
+}
+
 function renderLiveApisContent() {
 
     const scroll = document.getElementById("content-scroll");
 
     let html = buildModePill(true);
 
-    html += `<div class="group-guidance">Two tiers here: the first group needs no signup at all — just type a target and run it. The second group needs a free API key pasted in below (each has a generous free tier). Every call is made from PRISM's Electron backend, never from the page itself, so your keys never sit in browser storage.</div>`;
+    html += `<div class="group-guidance">Two tiers here: the first group needs no signup at all — just type a target and run it. The second group needs a free API key, protected by the Key Vault below. Every call is made from PRISM's Electron backend, never from the page itself.</div>`;
 
     html += `<div class="group-heading" style="margin-top:6px;">No Key Required</div>`;
     html += `<div class="runner-grid">`;
@@ -2632,26 +2773,35 @@ function renderLiveApisContent() {
 
     html += `</div>`;
 
-    html += `<div class="group-heading" style="margin-top:30px;">API-Key Required <span style="font-size:11px;color:var(--text-dim);font-weight:400;">— add your free key below to unlock</span></div>`;
-    html += `<div class="settings-panel">`;
+    html += `<div class="group-heading" style="margin-top:30px;">API-Key Required</div>`;
 
-    KEY_APIS.forEach((api) => {
+    html += buildVaultPanel();
 
-        const connected = !!keyStatusCache[api.id];
+    const unlocked = vaultStatusCache.unlocked;
 
-        html += `
-            <div class="key-row">
-                <div class="key-row-name">${escapeHtml(api.name)}</div>
-                <input type="password" placeholder="Paste ${escapeHtml(api.name)} API key..." class="key-input" data-service-id="${api.id}" ${connected ? 'value="••••••••••••••••"' : ""}>
-                <button class="key-save-btn" data-service-id="${api.id}">💾 Save</button>
-                <button class="key-clear-btn" data-service-id="${api.id}">✕</button>
-                <span class="key-badge ${connected ? "connected" : "missing"}">${connected ? "CONNECTED" : "NOT SET"}</span>
-            </div>
-        `;
+    if (unlocked) {
 
-    });
+        html += `<div class="settings-panel">`;
 
-    html += `</div>`;
+        KEY_APIS.forEach((api) => {
+
+            const connected = !!keyStatusCache[api.id];
+
+            html += `
+                <div class="key-row">
+                    <div class="key-row-name">${escapeHtml(api.name)}</div>
+                    <input type="password" placeholder="Paste ${escapeHtml(api.name)} API key..." class="key-input" data-service-id="${api.id}" ${connected ? 'value="••••••••••••••••"' : ""}>
+                    <button class="key-save-btn" data-service-id="${api.id}">💾 Save</button>
+                    <button class="key-clear-btn" data-service-id="${api.id}">✕</button>
+                    <span class="key-badge ${connected ? "connected" : "missing"}">${connected ? "CONNECTED" : "NOT SET"}</span>
+                </div>
+            `;
+
+        });
+
+        html += `</div>`;
+
+    }
 
     html += `<div class="group-heading" style="margin-top:10px;">Run a Key-Based Lookup</div>`;
     html += `<div class="runner-grid">`;
@@ -2659,6 +2809,7 @@ function renderLiveApisContent() {
     KEY_APIS.forEach((api) => {
 
         const connected = !!keyStatusCache[api.id];
+        const canRun = unlocked && connected;
 
         html += `
             <div class="runner-card" data-api-id="${api.id}">
@@ -2669,9 +2820,9 @@ function renderLiveApisContent() {
                 <div class="runner-desc">${escapeHtml(api.desc)} · <a class="tool-link" href="${api.signup}" target="_blank" rel="noopener noreferrer" style="margin-left:4px;">Get free key ↗</a> · ${escapeHtml(api.limit)}</div>
                 <div class="runner-row">
                     <input type="text" placeholder="e.g. 8.8.8.8" class="api-target" value="8.8.8.8">
-                    <button class="api-run-btn" data-service-id="${api.id}" ${connected ? "" : "disabled"}>▶ Run</button>
+                    <button class="api-run-btn" data-service-id="${api.id}" ${canRun ? "" : "disabled"}>▶ Run</button>
                 </div>
-                <div class="runner-output empty">${connected ? "Output will appear here after you run this lookup." : "Add your API key above first."}</div>
+                <div class="runner-output empty">${canRun ? "Output will appear here after you run this lookup." : (unlocked ? "Add your API key above first." : "Unlock the vault above first.")}</div>
             </div>
         `;
 
@@ -2764,13 +2915,16 @@ function wireKeyButtons(scope) {
 
             if (!value || value === "••••••••••••••••") return;
 
-            if (window.prismAPI && typeof window.prismAPI.saveKey === "function") {
+            if (window.prismAPI && typeof window.prismAPI.vaultSaveKey === "function") {
 
-                const result = await window.prismAPI.saveKey(serviceId, value);
+                const result = await window.prismAPI.vaultSaveKey(serviceId, value);
 
                 if (result.ok) {
+                    logActivity(`Saved API key for ${serviceId} to the vault`);
                     await refreshKeyStatus();
                     renderLiveApisContent();
+                } else {
+                    alert(result.error);
                 }
 
             } else {
@@ -2789,9 +2943,10 @@ function wireKeyButtons(scope) {
 
             const serviceId = btn.getAttribute("data-service-id");
 
-            if (window.prismAPI && typeof window.prismAPI.deleteKey === "function") {
+            if (window.prismAPI && typeof window.prismAPI.vaultDeleteKey === "function") {
 
-                await window.prismAPI.deleteKey(serviceId);
+                await window.prismAPI.vaultDeleteKey(serviceId);
+                logActivity(`Removed API key for ${serviceId} from the vault`);
                 await refreshKeyStatus();
                 renderLiveApisContent();
 
